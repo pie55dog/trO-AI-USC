@@ -1,6 +1,6 @@
 /**
  * Step 2 of 2: "Set your preferences".
- * Figma: "Refined / Set your preferences (Dark)" on Page 4.
+ * Figma: "Refined / Set your preferences (Dark)" on Page 1 ("final").
  *
  * Both questions start unanswered: consent must be an explicit choice
  * (spec section 5), so "Finish setup" stays disabled until both are picked.
@@ -143,7 +143,7 @@ export default function Preferences() {
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <StickyCta>
+      <StickyCta pushDown={false}>
         <PrimaryButton onClick={finish} disabled={!ready} loading={saving}>
           Finish setup
         </PrimaryButton>

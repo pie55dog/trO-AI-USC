@@ -1,15 +1,15 @@
 /**
  * How it works: five pages a new person sees after tapping their bracelet,
  * then step 1. Also reachable from the dashboard's Tutorial button.
- * Figma (Page 4): "Onboarding 1 / Welcome" through "Onboarding 5 / After the
- * event" (Dark).
+ * Figma (Page 1, "final"): "Onboarding 1 / Welcome" through "Onboarding 5 /
+ * After the event" (Dark).
  *
  * The cream circles are deliberate placeholders (40% opacity in Figma): the
  * team is dropping a 3D animation into each one. Keep their sizes and
  * positions as in Figma.
  */
 
-import { ArrowLeft, Mail, RotateCcw, Watch } from "lucide-react";
+import { ChevronLeft, Mail, RotateCcw, Watch } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { tokenStore } from "../api";
@@ -80,9 +80,9 @@ export default function Tutorial() {
           aria-label="Back"
           onClick={() => setPage(page - 1)}
           disabled={page === 0}
-          className={cx("glass flex size-10 shrink-0 items-center justify-center rounded-[20px] bg-highlight text-dark", page === 0 && "invisible")}
+          className={cx("glass flex size-10 shrink-0 items-center justify-center rounded-[20px] bg-highlight/[0.08] text-highlight", page === 0 && "invisible")}
         >
-          <Icon icon={ArrowLeft} size={20} />
+          <Icon icon={ChevronLeft} size={20} />
         </button>
         <div aria-label={`Page ${page + 1} of ${PAGES}`} role="progressbar" aria-valuemin={1} aria-valuemax={PAGES} aria-valuenow={page + 1} className="flex h-1 flex-1 gap-1.5">
           {Array.from({ length: PAGES }, (_, i) => (

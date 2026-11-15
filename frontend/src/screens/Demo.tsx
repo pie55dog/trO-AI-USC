@@ -12,7 +12,7 @@ import { Button, DisplayTitle, IconBubble, Screen } from "../components/ui";
 import { lastEventStore } from "../session";
 
 /** Event used by the demo links; the bracelet tap link carries the real one. */
-const DEMO_EVENT = 1;
+export const DEMO_EVENT = 1;
 
 const SCREENS: { step: string; title: string; detail: string; to: string; icon: ReactNode }[] = [
   {

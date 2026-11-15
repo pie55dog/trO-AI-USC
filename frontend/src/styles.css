@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  Design tokens from the dark Figma screens (Page 4, "(Dark)" frames).
+  Design tokens from the dark Figma screens (Page 1, "(Dark)" frames labeled "final").
   Colors: highlight #FCFCF9, yellow #FDE872, dark #261213, dark-dark #0F0404.
   Type: Libertinus Sans for the 40px display line, Instrument Sans for the rest
   (Title 22, Body 14, Label 14 medium, Caption 12, Label S 12 semibold).

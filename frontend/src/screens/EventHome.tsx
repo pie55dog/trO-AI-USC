@@ -1,6 +1,6 @@
 /**
  * The event dashboard: everyone you've tapped.
- * Figma: "Refined / event (connections) (Dark)" on Page 4.
+ * Figma: "Refined / event (connections) (Dark)" on Page 1 ("final").
  *
  * Connections come from GET /events/{id}/connections. They appear once the
  * bracelet data is processed (not built yet), so for now most people will
@@ -114,7 +114,7 @@ export function ConnectionCard({ person }: { person: Connection }) {
         {photo ? (
           <img src={photo} alt="" className="size-16 shrink-0 rounded-full object-cover" />
         ) : (
-          <span aria-hidden className="size-16 shrink-0 rounded-full bg-highlight" />
+          <span aria-hidden className="size-16 shrink-0 rounded-full bg-highlight/15" />
         )}
         <div className="flex min-w-0 flex-col gap-1 text-highlight">
           <h3 className="text-label font-medium">{person.name}</h3>
@@ -135,7 +135,7 @@ export function ConnectionCard({ person }: { person: Connection }) {
           <div className="flex flex-wrap gap-2">{reach}</div>
         </div>
       )}
-      <div className="h-px w-full bg-highlight" />
+      <div className="h-px w-full bg-highlight/10" />
       <div className="flex items-center gap-3 pt-2 pb-3 text-highlight">
         <Icon icon={FileText} size={20} />
         <div className="flex flex-1 flex-col gap-0.5">
@@ -235,7 +235,7 @@ export default function EventHome() {
           <span className="text-yellow tabular-nums">{people.length}</span>
         </h2>
 
-        <div role="tablist" className="flex gap-1 rounded-[13px] bg-highlight p-1">
+        <div role="tablist" className="flex gap-1 rounded-[13px] bg-highlight/[0.06] p-1">
           {(["connected", "recommendations"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -245,7 +245,7 @@ export default function EventHome() {
               onClick={() => setTab(t)}
               className={cx(
                 "min-h-[37px] flex-1 py-2.5 text-label font-medium transition-colors",
-                tab === t ? "rounded-[15px] bg-highlight text-dark shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "rounded-[10px] text-dark/50",
+                tab === t ? "rounded-[15px] bg-highlight/[0.14] text-highlight shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "rounded-[10px] text-highlight",
               )}
             >
               {t === "connected" ? "Connected" : "Recommendations"}

@@ -1,6 +1,6 @@
 /**
  * Step 1 of 2: "Welcome to event." Summary email + profile.
- * Figma: "Refined / Welcome to event (Dark)" on Page 4.
+ * Figma: "Refined / Welcome to event (Dark)" on Page 1 ("final").
  *
  * "Continue" creates the account from name + email. If the phone already has
  * a token (signed in earlier), the saved profile fills any empty fields.
@@ -282,6 +282,7 @@ export default function Welcome() {
             />
           </div>
           <Field
+            multiline
             label={`Bio · 5–${BIO_MAX} words · optional`}
             value={draft.bio}
             onChange={(e) => set("bio", e.target.value)}
@@ -328,7 +329,7 @@ export default function Welcome() {
           <section className="flex flex-col gap-2">
             <h3 className="text-label-s font-semibold">Links · optional</h3>
             <div className="flex items-center gap-2">
-              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-highlight text-dark">
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-highlight/[0.08] text-highlight">
                 <LinkedinIcon size={20} />
               </span>
               <input

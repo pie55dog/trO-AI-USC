@@ -1,11 +1,11 @@
 /**
- * Shared building blocks matching the dark Figma screens (Page 4) and the
+ * Shared building blocks matching the dark Figma screens (Page 1, the frames labeled "final") and the
  * "trO UI Components" frame: glass Button, Info pill, Step badge, Field,
  * Chip, consent options, the top gradient band and the logo loader.
  */
 
 import { ArrowRight, Check, LoaderCircle, type LucideIcon } from "lucide-react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { useId } from "react";
 import bgStripes from "../assets/bg-stripes.png";
 import topBand from "../assets/top-band.png";
@@ -118,15 +118,26 @@ export function StepIndicator({ step }: { step: 1 | 2 }) {
     <div className="flex items-center gap-1.5" aria-label={`Step ${step} of 2`}>
       <span className="text-caption text-highlight">Step {step} of 2</span>
       <span aria-hidden className="h-1 w-6 rounded-sm bg-highlight" />
-      <span aria-hidden className="h-1 w-6 rounded-sm bg-highlight" />
+      <span aria-hidden className={cx("h-1 w-6 rounded-sm bg-highlight", step === 1 && "opacity-35")} />
     </div>
   );
 }
 
 /** Bottom area for the main action, so it stays in the thumb zone. */
-export function StickyCta({ children, divider, sticky = true }: { children: ReactNode; divider?: boolean; sticky?: boolean }) {
+export function StickyCta({
+  children,
+  divider,
+  sticky = true,
+  pushDown = true,
+}: {
+  children: ReactNode;
+  divider?: boolean;
+  sticky?: boolean;
+  /** false: sit right under the content (as on Preferences) instead of at the screen bottom. */
+  pushDown?: boolean;
+}) {
   return (
-    <div className={cx("mt-auto", sticky && "sticky bottom-0 -mx-[25px] bg-darkest px-[25px]")}>
+    <div className={cx(pushDown && "mt-auto", sticky && "sticky bottom-0 -mx-[25px] bg-darkest px-[25px]")}>
       <div
         className={cx(
           "flex flex-col gap-2",
@@ -150,7 +161,7 @@ export function StatusPill({ icon, children }: { icon: ReactNode; children: Reac
 }
 
 /**
- * Round bubble behind an icon. "light": cream disc (preferences, LinkedIn);
+ * Round bubble behind an icon. "light": 8% cream disc (preferences);
  * "maroon": 30% maroon disc on the "Before you go" cards.
  */
 export function IconBubble({ children, tone = "light" }: { children: ReactNode; tone?: "light" | "maroon" }) {
@@ -159,7 +170,7 @@ export function IconBubble({ children, tone = "light" }: { children: ReactNode; 
       aria-hidden
       className={cx(
         "flex size-10 shrink-0 items-center justify-center rounded-full [&>svg]:size-5",
-        tone === "light" ? "bg-highlight text-dark" : "bg-maroon/30 text-highlight",
+        tone === "light" ? "bg-highlight/[0.08] text-highlight" : "bg-maroon/30 text-highlight",
       )}
     >
       {children}
@@ -187,10 +198,12 @@ type FieldProps = {
   label: ReactNode;
   hint?: ReactNode;
   error?: string | null;
-} & InputHTMLAttributes<HTMLInputElement>;
+  multiline?: boolean;
+} & InputHTMLAttributes<HTMLInputElement> &
+  TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 /** Label (12 semibold) + input (14, 12px radius) + optional hint or error. */
-export function Field({ label, hint, error, className, ...rest }: FieldProps) {
+export function Field({ label, hint, error, multiline, className, ...rest }: FieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   return (
@@ -198,13 +211,24 @@ export function Field({ label, hint, error, className, ...rest }: FieldProps) {
       <label htmlFor={id} className="text-label-s font-semibold text-highlight">
         {label}
       </label>
-      <input
-        id={id}
-        aria-describedby={hint || error ? hintId : undefined}
-        aria-invalid={!!error}
-        className={inputClass(!!error)}
-        {...rest}
-      />
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={2}
+          aria-describedby={hint || error ? hintId : undefined}
+          aria-invalid={!!error}
+          className={cx(inputClass(!!error), "h-[70px] resize-none")}
+          {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)}
+        />
+      ) : (
+        <input
+          id={id}
+          aria-describedby={hint || error ? hintId : undefined}
+          aria-invalid={!!error}
+          className={inputClass(!!error)}
+          {...(rest as InputHTMLAttributes<HTMLInputElement>)}
+        />
+      )}
       {(error || hint) && (
         <p id={hintId} className={cx("text-caption", error ? "text-danger" : "text-highlight/50")}>
           {error || hint}
