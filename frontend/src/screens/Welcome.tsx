@@ -44,8 +44,8 @@ export function validate(d: ProfileDraft): Errors {
   if (!d.school.trim()) e.school = "Add your school.";
   if (!d.major.trim()) e.major = "Add your major.";
   const words = wordCount(d.bio);
-  if (words === 0) e.bio = "Add a short bio.";
-  else if (words > BIO_MAX) e.bio = `Keep it to ${BIO_MAX} words or fewer.`;
+  // Bio is optional: no minimum, just a cap so it fits on a card.
+  if (words > BIO_MAX) e.bio = `Keep it to ${BIO_MAX} words or fewer.`;
   if (d.interests.length === 0) e.interests = "Pick at least one.";
   return e;
 }
@@ -285,7 +285,7 @@ export default function Welcome() {
           </div>
           <Field
             multiline
-            label={`Bio · up to ${BIO_MAX} words`}
+            label={`Bio (optional) · up to ${BIO_MAX} words`}
             placeholder="Junior building tools for student orgs. Into AI and hackathons."
             value={draft.bio}
             onChange={(e) => set("bio", e.target.value)}

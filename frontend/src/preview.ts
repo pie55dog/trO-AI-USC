@@ -15,7 +15,7 @@ const STATE_KEY = "tro.preview";
 export const PREVIEW_TOKEN = "preview";
 
 const SHAREABLE: ShareableField[] = ["email", "linkedin_url", "company", "website", "portfolio_url", "instagram"];
-const REQUIRED: (keyof Profile)[] = ["name", "email", "school", "major", "bio", "interests"];
+const REQUIRED: (keyof Profile)[] = ["name", "email", "school", "major", "interests"];
 
 interface State {
   profile: Profile;

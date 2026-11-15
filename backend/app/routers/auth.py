@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import secrets
 from typing import Annotated, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -37,6 +37,18 @@ STATE_COOKIE = "tro_oauth_state"
 STATE_MAX_AGE = 10 * 60  # the user has 10 minutes to finish signing in
 
 
+def _cookie_path(settings: Settings) -> str:
+    """Path the browser sees for /auth, e.g. "/api/auth" behind the dev proxy.
+
+    Taken from LINKEDIN_REDIRECT_URI (".../auth/linkedin/callback"), so the
+    state cookie set at login is sent back on the callback whether the app is
+    reached directly or through a /api proxy.
+    """
+    path = urlsplit(settings.linkedin_redirect_uri).path
+    prefix = path.rsplit("/linkedin/", 1)[0] if "/linkedin/" in path else ""
+    return prefix or "/auth"
+
+
 def _state_signer(settings: Settings) -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(settings.secret_key, salt="tro-oauth-state")
 
@@ -45,7 +57,7 @@ def _frontend_redirect(settings: Settings, **params: str) -> RedirectResponse:
     """Send the browser back to the web app with ``params`` in the fragment."""
     url = f"{settings.frontend_url.rstrip('/')}/auth/callback#{urlencode(params)}"
     resp = RedirectResponse(url, status_code=status.HTTP_302_FOUND)
-    resp.delete_cookie(STATE_COOKIE, path="/auth")
+    resp.delete_cookie(STATE_COOKIE, path=_cookie_path(settings))
     return resp
 
 
@@ -65,7 +77,7 @@ def linkedin_login(settings: Annotated[Settings, Depends(get_settings)]) -> Redi
         httponly=True,
         samesite="lax",  # sent on LinkedIn's top-level redirect back to us
         secure=settings.linkedin_redirect_uri.startswith("https://"),
-        path="/auth",
+        path=_cookie_path(settings),
     )
     return resp
 

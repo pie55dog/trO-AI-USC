@@ -68,14 +68,14 @@ describe("helpers", () => {
 
   it("validates the profile like the backend's onboarding rules", () => {
     const errors = validate(emptyDraft);
-    expect(Object.keys(errors).sort()).toEqual(["bio", "email", "interests", "major", "name", "school"]);
+    expect(Object.keys(errors).sort()).toEqual(["email", "interests", "major", "name", "school"]);
     const ok = validate({
       ...emptyDraft, name: "T", email: "t@usc.edu", school: "V", major: "CS",
       bio: "one two three four five", interests: ["AI & ML"],
     });
     expect(ok).toEqual({});
-    expect(validate({ ...emptyDraft, bio: "Short." }).bio).toBeUndefined();
-    expect(validate({ ...emptyDraft, bio: "  " }).bio).toBeDefined();
+    expect(validate({ ...emptyDraft, bio: "" }).bio).toBeUndefined(); // bio is optional
+    expect(validate({ ...emptyDraft, bio: "short" }).bio).toBeUndefined(); // no minimum
     expect(validate({ ...emptyDraft, bio: Array(21).fill("w").join(" ") }).bio).toBeDefined();
   });
 });

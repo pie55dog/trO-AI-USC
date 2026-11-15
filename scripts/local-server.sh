@@ -20,8 +20,10 @@ lan_ip() {
   ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null ||
     hostname -I 2>/dev/null | awk '{print $1}' || true
 }
-IP="$(lan_ip)"
+# APP_HOST overrides it, e.g. the IPv6 address on a phone hotspot.
+IP="${APP_HOST:-$(lan_ip)}"
 IP="${IP:-localhost}"
+case "$IP" in *:*) IP="[$IP]" ;; esac  # IPv6 needs brackets in a URL
 APP_URL="http://$IP:5173"
 
 # --- Backend setup ----------------------------------------------------------
@@ -41,7 +43,11 @@ if [ ! -f .env ]; then
       .env.example > .env
 fi
 # The phone opens the app at this computer's address; keep it current.
-sed -i.bak -e "s|^FRONTEND_URL=.*|FRONTEND_URL=$APP_URL|" -e "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$APP_URL|" .env && rm -f .env.bak
+# LinkedIn sends the phone back through the web app's /api proxy, so the
+# callback lives at this address too (add it to the LinkedIn app's redirect URLs).
+LINKEDIN_CALLBACK="$APP_URL/api/auth/linkedin/callback"
+sed -i.bak -e "s|^FRONTEND_URL=.*|FRONTEND_URL=$APP_URL|" -e "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$APP_URL|" \
+    -e "s|^LINKEDIN_REDIRECT_URI=.*|LINKEDIN_REDIRECT_URI=$LINKEDIN_CALLBACK|" .env && rm -f .env.bak
 
 set -a; . ./.env; set +a
 
@@ -81,6 +87,8 @@ cat <<EOF
   Each test person needs their own bracelet code: change TEST01 to TEST02, ...
   Email delivery: EMAIL_BACKEND=$EMAIL_BACKEND$( [ "$EMAIL_BACKEND" = console ] && echo " (saved to backend/media/outbox, not sent)")
   Send the summary emails:  ./scripts/send-summaries.sh
+  LinkedIn sign-in: $( [ -n "${LINKEDIN_CLIENT_ID:-}" ] && echo "on" || echo "off (run ./scripts/setup-linkedin.sh)")
+    Redirect URL to add in the LinkedIn app: $LINKEDIN_CALLBACK
 
   Ctrl-C to stop.
 EOF
