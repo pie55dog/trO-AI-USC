@@ -197,3 +197,27 @@ def test_smtp_errors_become_email_error(settings, monkeypatch):
     s = dataclasses.replace(settings, email_backend="smtp", smtp_host="localhost")
     with pytest.raises(mailer.EmailError):
         mailer.get_backend(s).send(mailer.build_message(s, "x@usc.edu", "Hi", "t", "<p>h</p>"))
+
+
+def test_attendee_test_email_goes_to_them_and_keeps_real_send(client, make_user, make_event, settings):
+    event_id = make_event("Club Mixer")
+    _, h = make_user(name="Dana Park", email="dana@usc.edu")
+    attend(client, event_id, h, "A1")
+
+    resp = client.post(f"/events/{event_id}/test-email", headers=h)
+    assert resp.status_code == 200 and resp.json() == {"sent_to": "dana@usc.edu", "delivered": False}
+    [msg] = outbox(settings)
+    assert msg["To"] == "dana@usc.edu" and "Club Mixer" in msg["Subject"]
+
+    # The real post-event send still goes out afterwards.
+    report = client.post(f"/events/{event_id}/send-summaries", headers=ADMIN).json()
+    assert report["sent"] == 1 and len(outbox(settings)) == 2
+
+
+def test_attendee_test_email_needs_sign_in_and_reports_smtp_problems(client, app, make_user, make_event, settings):
+    event_id = make_event()
+    assert client.post(f"/events/{event_id}/test-email").status_code == 401
+    _, h = make_user()
+    assert client.post("/events/999/test-email", headers=h).status_code == 404
+    app.state.settings = dataclasses.replace(settings, email_backend="smtp", smtp_host="")
+    assert client.post(f"/events/{event_id}/test-email", headers=h).status_code == 503

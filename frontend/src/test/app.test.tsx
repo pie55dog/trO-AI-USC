@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokenStore, type Connection, type Me } from "../api";
 import { wordCount } from "../hooks";
 import AuthCallback from "../screens/AuthCallback";
-import { ConnectionCard } from "../screens/EventHome";
+import { ConnectionCard, TestEmail } from "../screens/EventHome";
 import Preferences from "../screens/Preferences";
 import Welcome, { validate } from "../screens/Welcome";
 import { emptyDraft } from "../session";
@@ -206,3 +206,23 @@ describe("bracelet already taken", () => {
     expect(localStorage.getItem("tro.bracelet.1")).toBeNull();
   });
 });
+
+describe("test email button", () => {
+  it("sends the summary to the signed-in person and says where it went", async () => {
+    tokenStore.set("t");
+    const calls = mockApi({ "POST /events/3/test-email": { sent_to: "t@usc.edu", delivered: true } });
+    render(<TestEmail eventId={3} email="t@usc.edu" />);
+    await userEvent.click(screen.getByRole("button", { name: /send me a test email/i }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Sent to t@usc.edu");
+    expect(calls.map((c) => c.key)).toEqual(["POST /events/3/test-email"]);
+  });
+
+  it("shows the server's reason when sending fails", async () => {
+    tokenStore.set("t");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "SMTP is not configured" }), { status: 503 })));
+    render(<TestEmail eventId={3} email="t@usc.edu" />);
+    await userEvent.click(screen.getByRole("button", { name: /send me a test email/i }));
+    expect(await screen.findByText("SMTP is not configured")).toBeInTheDocument();
+  });
+});
+

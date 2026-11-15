@@ -194,6 +194,8 @@ const serverApi = {
     }),
   myBracelet: (eventId: number) => request<BraceletAssignment>(`/events/${eventId}/bracelet`),
   connections: (eventId: number) => request<Connection[]>(`/events/${eventId}/connections`),
+  /** Email the signed-in person their summary for this event right now. */
+  testEmail: (eventId: number) => request<{ sent_to: string; delivered: boolean }>(`/events/${eventId}/test-email`, { method: "POST" }),
 };
 
 export const api: typeof serverApi = PREVIEW ? { ...serverApi, ...previewApi } : serverApi;

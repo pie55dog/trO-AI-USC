@@ -153,4 +153,8 @@ export const previewApi = {
     requireState();
     return resolved<Connection[]>([]);
   },
+
+  // Sending email needs the real server (scripts/local-server.sh).
+  testEmail: (_eventId: number): Promise<{ sent_to: string; delivered: boolean }> =>
+    Promise.reject(new ApiError(503, "Sending email needs the trO server. This preview has none.")),
 };

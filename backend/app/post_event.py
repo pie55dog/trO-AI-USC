@@ -53,6 +53,24 @@ def connections_for(session: Session, event_id: int, user_id: int) -> list[maile
     return [connection_entry(c.person, c.prefs) for c in connected_people(session, event_id, user_id)]
 
 
+def send_test_email(session: Session, settings: Settings, event: Event, user: User) -> str:
+    """Send ``user`` their summary for ``event`` right now, as it stands.
+
+    For trying the email during a demo. Not written to EmailLog, so the real
+    post-event send still goes out. Returns the address it went to.
+    Raises ValueError if the user has no email and mailer.EmailError if
+    sending fails.
+    """
+    if not user.email:
+        raise ValueError("Add an email to your profile first")
+    subject, text, html_body = mailer.render_post_event_email(
+        user.name, event.name, connections_for(session, event.id, user.id)
+    )
+    message = mailer.build_message(settings, user.email, subject, text, html_body)
+    mailer.get_backend(settings).send(message)
+    return user.email
+
+
 def send_event_emails(
     session: Session, settings: Settings, event: Event, *, resend: bool = False
 ) -> SendReport:

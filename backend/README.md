@@ -55,6 +55,7 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only) |
 | anyone | `GET /events`, `GET /events/{id}` | List / view events |
 | organizer | `POST /events` | Create an event |
+| attendee | `POST /events/{id}/test-email` | Email me my summary for this event right now (for demos; doesn't count as the post-event email) |
 | organizer | `POST /events/{id}/send-summaries` | Send every attendee their post-event email (re-runs skip people already emailed) |
 | organizer | `POST /admin/email/test` | Send a test email to check SMTP |
 | bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, `event_id` (required once a bracelet is reused), `payload` (JSON text), `files` |
