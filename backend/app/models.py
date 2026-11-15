@@ -8,6 +8,8 @@ and the user flow in section 4:
       └──< BraceletAssignment >── Event      (a bracelet is your ticket to one event)
                                     │
            Connection (two users who tapped at an event)
+           TapReport (one bracelet saying "I'm touching that one"; two matching reports make a Connection)
+           Star (a user starred a connection with the bracelet button)
            BraceletUpload (raw data a bracelet sent; stored, not processed yet)
            EmailLog (one post-event email per attendee per event)
 """
@@ -135,10 +137,8 @@ class BraceletAssignment(SQLModel, table=True):
 class Connection(SQLModel, table=True):
     """Two attendees who tapped bracelets at an event.
 
-    Nothing writes these yet: turning bracelet uploads into connections is
-    the bracelet-processing step, which is out of scope for the first run.
-    The post-event email already reads from this table, so once processing
-    lands the emails fill in with no further changes.
+    Created live when two bracelets report the same tap (see TapReport and
+    app/taps.py). The dashboard and the post-event email read from here.
 
     The pair is stored once with user_a_id < user_b_id.
     """
@@ -154,6 +154,41 @@ class Connection(SQLModel, table=True):
     # had consented at tap time). Stored, not recomputed, so changing consent
     # later never rewrites what happened.
     recorded: bool = False
+
+
+class TapReport(SQLModel, table=True):
+    """One bracelet saying "I'm being held against that bracelet right now".
+
+    Bracelets find each other over ESP-NOW and each one reports the tap to
+    POST /bracelets/tap, retrying a few times a second. When the two reports
+    agree (A says B and B says A, within a few seconds) the server creates
+    the Connection and both bracelets get "paired" on their next try.
+
+    ``peer_bracelet_id`` is empty for a manual tap (button held), which pairs
+    with any other report at the same event in the same few seconds.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_id: int = Field(foreign_key="event.id", index=True)
+    bracelet_id: str = Field(index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    peer_bracelet_id: str = ""
+    rssi: Optional[int] = None
+    first_at: datetime = Field(default_factory=utcnow)
+    last_at: datetime = Field(default_factory=utcnow, index=True)
+    # Set once this report has been paired into a connection.
+    connection_id: Optional[int] = Field(default=None, foreign_key="connection.id")
+
+
+class Star(SQLModel, table=True):
+    """A user starred one of their connections (short press on the bracelet button)."""
+
+    __table_args__ = (UniqueConstraint("connection_id", "user_id", name="uq_star"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    connection_id: int = Field(foreign_key="connection.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    starred_at: datetime = Field(default_factory=utcnow)
 
 
 class BraceletUpload(SQLModel, table=True):

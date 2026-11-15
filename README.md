@@ -4,6 +4,7 @@ Tro: a networking bracelet for Trojans. Tap bracelets to connect, keep your phon
 
 - [`backend/`](backend/README.md): FastAPI API (LinkedIn sign-in, onboarding, bracelet assignment and uploads, post-event email)
 - [`frontend/`](frontend/README.md): mobile web app (sign-up, preferences, tutorial, event dashboard)
+- [`firmware/`](firmware/README.md): the bracelet (Seeed XIAO ESP32-S3): ESP-NOW tap detection, live pairing through the backend, LEDs, button
 
 ## Live deployment
 

@@ -2,13 +2,14 @@
  * The event dashboard: everyone you've tapped.
  * Figma: "Refined / event (connections) (Dark)" on Page 1 ("final").
  *
- * Connections come from GET /events/{id}/connections. They appear once the
- * bracelet data is processed (not built yet), so for now most people will
- * see the empty state. Match % and conversation notes from the Figma card
- * need the AI step, so they aren't shown with made-up values.
+ * Connections come from GET /events/{id}/connections. Two bracelets pair
+ * live (POST /bracelets/tap), so the list refreshes every few seconds while
+ * the page is open and a new tap pops in without reloading. Conversation
+ * notes from the Figma card need the AI step, so they aren't shown with
+ * made-up values.
  */
 
-import { ChevronRight, Copy, FileText, Globe, Mail, Mic, Play, Watch } from "lucide-react";
+import { ChevronRight, Copy, FileText, Globe, Mail, Mic, Play, Star, Watch } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Connection, type Me } from "../api";
@@ -31,6 +32,9 @@ import { useEventContext } from "../hooks";
 import { braceletStore } from "../session";
 
 type Tab = "connected" | "recommendations";
+
+// How often the dashboard re-checks for new taps.
+const REFRESH_MS = 4000;
 
 function Badge({ tone, icon, children }: { tone: "yellow" | "glass"; icon?: ReactNode; children: ReactNode }) {
   return (
@@ -125,6 +129,7 @@ export function ConnectionCard({ person }: { person: Connection }) {
             ) : (
               <Badge tone="glass">Contact only</Badge>
             )}
+            {person.starred && <Badge tone="glass" icon={<Icon icon={Star} size={12} />}>Starred</Badge>}
           </div>
         </div>
       </div>
@@ -193,6 +198,17 @@ export default function EventHome() {
   }, [eventId, braceletId]);
 
   useEffect(() => void load(), [load]);
+
+  // Taps arrive live, so keep the list fresh while the page is on screen.
+  const loaded = me !== null;
+  useEffect(() => {
+    if (!eventId || !loaded) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      api.connections(eventId).then(setPeople).catch(() => {});
+    }, REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [eventId, loaded]);
 
   if (!eventId) return <Navigate to="/" replace />;
   // New people start with how it works; anyone part way through goes back to step 1.

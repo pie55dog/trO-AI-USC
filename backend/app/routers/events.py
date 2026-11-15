@@ -150,8 +150,8 @@ def my_connections(
 ) -> list[ConnectionOut]:
     """Everyone the signed-in user tapped at this event, newest first.
 
-    Empty until bracelet processing creates connections. Contact info is
-    limited to what each person chose to share.
+    Connections appear the moment two bracelets pair (POST /bracelets/tap).
+    Contact info is limited to what each person chose to share.
     """
     _event_or_404(session, event_id)
     return [
@@ -164,6 +164,7 @@ def my_connections(
             bio=c.person.bio,
             photo_url=photo_url(c.person),
             recorded=c.connection.recorded,
+            starred=c.starred,
             contact=shared_contact(c.person, c.prefs),
             tapped_at=c.connection.tapped_at,
         )
