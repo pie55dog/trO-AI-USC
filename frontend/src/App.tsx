@@ -10,11 +10,12 @@
  */
 
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { PREVIEW } from "./api";
-import { Screen } from "./components/ui";
+import { buttonClass, Screen, StickyCta } from "./components/ui";
 import AuthCallback from "./screens/AuthCallback";
-import Demo from "./screens/Demo";
+import Demo, { DEMO_EVENT } from "./screens/Demo";
 import EventHome from "./screens/EventHome";
 import Preferences from "./screens/Preferences";
 import Tutorial from "./screens/Tutorial";
@@ -27,9 +28,18 @@ function Home() {
   const last = lastEventStore.get();
   if (last) return <Navigate to={`/e/${last}`} replace />;
   return (
-    <Screen className="justify-center gap-2 text-center">
-      <h1 className="text-title font-semibold">Tap your bracelet to start</h1>
-      <p className="text-body text-ink-muted">Hold your trO bracelet to your phone to open your event.</p>
+    <Screen className="text-center">
+      <div className="relative flex flex-1 flex-col items-center justify-center gap-2">
+        <h1 className="text-title font-semibold text-yellow">Tap your bracelet to start</h1>
+        <p className="text-body text-highlight">Hold your trO bracelet to your phone to open your event.</p>
+      </div>
+      {/* For trying the sign-up without hardware: same flow, just no bracelet linked. */}
+      <StickyCta>
+        <Link to={`/e/${DEMO_EVENT}/tutorial`} className={buttonClass("primary", "w-full")}>
+          Proceed without a bracelet
+          <ArrowRight aria-hidden size={16} strokeWidth={1} absoluteStrokeWidth />
+        </Link>
+      </StickyCta>
     </Screen>
   );
 }

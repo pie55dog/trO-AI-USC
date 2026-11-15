@@ -1,6 +1,6 @@
 /**
  * Step 2 of 2: "Set your preferences".
- * Figma: "Refined / Set your preferences" (node 27:111).
+ * Figma: "Refined / Set your preferences (Dark)" on Page 1 ("final").
  *
  * Both questions start unanswered: consent must be an explicit choice
  * (spec section 5), so "Finish setup" stays disabled until both are picked.
@@ -12,7 +12,7 @@ import { ChevronLeft, Mic, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api, ApiError, tokenStore } from "../api";
-import { DisplayTitle, ErrorNote, IconBubble, Loading, PrimaryButton, Screen, StickyCta, YesNo } from "../components/ui";
+import { Card, DisplayTitle, ErrorNote, Icon, IconBubble, Loading, PrimaryButton, Screen, StepIndicator, StickyCta, YesNo } from "../components/ui";
 import { useEventContext } from "../hooks";
 import { braceletStore, draftStore } from "../session";
 
@@ -30,16 +30,16 @@ function Question({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-[20px] border border-line px-5 py-4">
+    <Card className="flex flex-col gap-3 px-5 py-4">
       <div className="flex items-start gap-3">
         <IconBubble>{icon}</IconBubble>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-body font-semibold">{title}</h2>
-          <p className="text-caption text-ink-muted">{note}</p>
+        <div className="flex flex-col gap-1 text-highlight">
+          <h2 className="text-label font-medium">{title}</h2>
+          <p className="text-caption">{note}</p>
         </div>
       </div>
       <YesNo label={title} value={value} onChange={onChange} />
-    </section>
+    </Card>
   );
 }
 
@@ -103,60 +103,50 @@ export default function Preferences() {
   };
 
   return (
-    <Screen className="gap-6">
-      <div className="flex items-center justify-between">
-        <Link to={`/e/${eventId}/welcome`} className="flex min-h-11 items-center gap-1 pr-2 text-body text-ink-body">
-          <ChevronLeft aria-hidden className="size-5" />
+    <Screen className="gap-6 pt-7">
+      <div className="relative flex items-center justify-between">
+        <Link to={`/e/${eventId}/welcome`} className="flex min-h-11 items-center gap-1 pr-2 text-body text-highlight">
+          <Icon icon={ChevronLeft} size={20} />
           Profile
         </Link>
-        <div className="flex items-center gap-1.5" aria-label="Step 2 of 2">
-          <span className="text-caption text-ink-muted">Step 2 of 2</span>
-          <span aria-hidden className="h-1 w-6 rounded-sm bg-ink" />
-          <span aria-hidden className="h-1 w-6 rounded-sm bg-ink" />
-        </div>
+        <StepIndicator step={2} />
       </div>
 
-      <section className="flex flex-col gap-4">
+      <section className="relative flex flex-col gap-4">
         <DisplayTitle>
           Welcome to
           <br />
           {eventName}.
         </DisplayTitle>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-title font-semibold">Set your preferences</h2>
-          <p className="text-body text-ink-muted">Pick one for each. You can change them until the event starts.</p>
-        </div>
+        <h2 className="text-body text-highlight">Set your preferences</h2>
       </section>
 
       <Question
-        icon={<Mic />}
+        icon={<Icon icon={Mic} size={20} />}
         title="Do you consent to being recorded by trO when you connect with someone?"
         note="Only records if you both said yes. Your bracelet blinks the whole time."
         value={recording}
         onChange={setRecording}
       />
       <Question
-        icon={<Users />}
+        icon={<Icon icon={Users} size={20} />}
         title="Do you want personalized connection recommendations based on your profile?"
         note="We suggest people to meet and include them in your summary."
         value={recommendations}
         onChange={setRecommendations}
       />
 
-      <p className="flex items-start gap-2 text-caption text-ink-muted">
-        <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink" />
+      <p className="flex items-start gap-2 text-caption text-highlight">
+        <Icon icon={ShieldCheck} />
         Audio and transcripts are deleted after your summary email is sent.
       </p>
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <StickyCta>
+      <StickyCta pushDown={false}>
         <PrimaryButton onClick={finish} disabled={!ready} loading={saving}>
           Finish setup
         </PrimaryButton>
-        <p className="text-center text-caption text-ink-muted">
-          {ready ? "You can change these until the event starts." : "Both questions need an answer to finish."}
-        </p>
       </StickyCta>
     </Screen>
   );

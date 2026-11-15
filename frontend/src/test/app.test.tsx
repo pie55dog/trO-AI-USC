@@ -101,8 +101,20 @@ describe("start of the flow", () => {
     mockApi({ "GET /events/1": { id: 1, name: "Demo night" } });
     renderFlow("/e/1?b=TEST01");
     expect(await screen.findByText(/how it works/i)).toBeTruthy();
-    expect(screen.queryByText("This is trO")).toBeNull();
+    expect(screen.getByText("This is trO")).toBeTruthy();
+    // Five pages: walk through them to the last one.
+    await userEvent.click(screen.getByRole("button", { name: /show me how/i }));
+    expect(screen.getByText("When you meet someone, tap bracelets")).toBeTruthy();
+    for (let i = 0; i < 3; i++) await userEvent.click(screen.getByRole("button", { name: /^next/i }));
+    expect(screen.getByText("Before you go")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /got it/i }));
+    expect(await screen.findByText("welcome screen")).toBeTruthy();
+  });
+
+  it("lets people skip how it works", async () => {
+    mockApi({ "GET /events/1": { id: 1, name: "Demo night" } });
+    renderFlow("/e/1?b=TEST01");
+    await userEvent.click(await screen.findByRole("button", { name: /skip/i }));
     expect(await screen.findByText("welcome screen")).toBeTruthy();
   });
 
@@ -123,7 +135,7 @@ describe("Welcome (step 1)", () => {
     });
     renderAt("/e/1/welcome?b=a4:cf:00:42", <Welcome />, "/e/:eventId/welcome");
 
-    expect(await screen.findByText("Bracelet A4CF0042 linked to this phone")).toBeInTheDocument();
+    expect(await screen.findByText("Bracelet A4CF0042 linked")).toBeInTheDocument();
     expect(await screen.findByText(/Industry Night\./)).toBeInTheDocument();
 
     const user = userEvent.setup();

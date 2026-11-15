@@ -40,3 +40,11 @@ describe("demo hub", () => {
     expect(localStorage.getItem("tro.profileDraft")).toBeNull();
   });
 });
+
+describe("home without a bracelet", () => {
+  it("offers to try the sign-up without a bracelet", async () => {
+    const { default: App } = await import("../App");
+    render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: /proceed without a bracelet/i })).toHaveAttribute("href", "/e/1/tutorial");
+  });
+});

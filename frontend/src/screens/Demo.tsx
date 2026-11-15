@@ -8,11 +8,11 @@ import { BookOpen, ChevronRight, LayoutList, RotateCcw, SlidersHorizontal, UserR
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PREVIEW, storageSet, tokenStore } from "../api";
-import { IconBubble, Screen, SecondaryButton } from "../components/ui";
+import { Button, DisplayTitle, IconBubble, Screen } from "../components/ui";
 import { lastEventStore } from "../session";
 
 /** Event used by the demo links; the bracelet tap link carries the real one. */
-const DEMO_EVENT = 1;
+export const DEMO_EVENT = 1;
 
 const SCREENS: { step: string; title: string; detail: string; to: string; icon: ReactNode }[] = [
   {
@@ -58,9 +58,9 @@ export default function Demo() {
 
   return (
     <Screen className="gap-8 pt-12 pb-12">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display font-normal italic text-ink">trO demo</h1>
-        <p className="text-body text-ink-muted">
+      <header className="relative flex flex-col gap-2">
+        <DisplayTitle>trO demo</DisplayTitle>
+        <p className="text-body text-highlight">
           Open any screen of the flow. In real use, tapping the bracelet opens how it works.
           {PREVIEW && " This preview has no server, so what you enter stays on this phone."}
         </p>
@@ -71,24 +71,23 @@ export default function Demo() {
           <Link
             key={s.to}
             to={s.to}
-            className="flex min-h-[72px] items-center gap-4 rounded-3xl border border-line bg-bg p-4 active:bg-soft"
+            className="glass flex min-h-[72px] items-center gap-4 rounded-[20px] p-4 active:bg-highlight/10"
           >
             <IconBubble>{s.icon}</IconBubble>
             <span className="flex flex-1 flex-col gap-0.5">
-              <span className="text-caption text-ink-muted">{s.step}</span>
-              <span className="text-body font-semibold text-ink">{s.title}</span>
-              <span className="text-caption text-ink-muted">{s.detail}</span>
+              <span className="text-caption text-yellow">{s.step}</span>
+              <span className="text-label font-medium text-highlight">{s.title}</span>
+              <span className="text-caption text-highlight/70">{s.detail}</span>
             </span>
-            <ChevronRight aria-hidden className="size-5 text-ink-muted" />
+            <ChevronRight aria-hidden strokeWidth={1} absoluteStrokeWidth className="size-5 text-highlight/70" />
           </Link>
         ))}
       </nav>
 
       <div className="mt-auto flex">
-        <SecondaryButton type="button" onClick={startOver}>
-          <RotateCcw aria-hidden className="mr-2 size-4" />
+        <Button type="button" variant="soft" arrow={false} className="flex-1" onClick={startOver} leading={<RotateCcw aria-hidden strokeWidth={1} absoluteStrokeWidth className="size-4" />}>
           Start over as a new person
-        </SecondaryButton>
+        </Button>
       </div>
     </Screen>
   );
