@@ -32,19 +32,33 @@ def _serializer(settings: Settings) -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(settings.secret_key, salt=_LOGIN_SALT)
 
 
-def issue_token(settings: Settings, user_id: int) -> str:
-    """Create a login token for ``user_id``."""
-    return _serializer(settings).dumps({"uid": user_id})
+def issue_token(settings: Settings, user_id: int, session_version: int = 0) -> str:
+    """Create a login token for ``user_id``.
+
+    ``session_version`` must match ``User.session_version``; bumping that
+    column signs the user out everywhere.
+    """
+    return _serializer(settings).dumps({"uid": user_id, "v": session_version})
 
 
-def read_token(settings: Settings, token: str) -> Optional[int]:
-    """Return the user id inside a valid, unexpired token, else None."""
+def read_token_claims(settings: Settings, token: str) -> Optional[tuple[int, int]]:
+    """Return (user id, session version) from a valid, unexpired token, else None."""
     try:
         data = _serializer(settings).loads(token, max_age=settings.token_max_age)
     except (BadSignature, SignatureExpired):
         return None
-    uid = data.get("uid") if isinstance(data, dict) else None
-    return uid if isinstance(uid, int) else None
+    if not isinstance(data, dict):
+        return None
+    uid, version = data.get("uid"), data.get("v", 0)
+    if not isinstance(uid, int) or not isinstance(version, int):
+        return None
+    return uid, version
+
+
+def read_token(settings: Settings, token: str) -> Optional[int]:
+    """Return the user id inside a valid, unexpired token, else None."""
+    claims = read_token_claims(settings, token)
+    return claims[0] if claims else None
 
 
 def current_user(
@@ -60,11 +74,12 @@ def current_user(
     )
     if not authorization or not authorization.lower().startswith("bearer "):
         raise unauthorized
-    user_id = read_token(settings, authorization[7:].strip())
-    if user_id is None:
+    claims = read_token_claims(settings, authorization[7:].strip())
+    if claims is None:
         raise unauthorized
-    user = session.get(User, user_id)
-    if user is None:  # account deleted after the token was issued
+    user = session.get(User, claims[0])
+    # Account deleted, or signed out everywhere since the token was issued.
+    if user is None or claims[1] != user.session_version:
         raise unauthorized
     return user
 

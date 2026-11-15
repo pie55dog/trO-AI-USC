@@ -74,6 +74,7 @@ def test_old_database_gets_new_columns(tmp_path):
     engine.dispose()
     con = sqlite3.connect(path)
     con.execute('ALTER TABLE "user" DROP COLUMN position')
+    con.execute('ALTER TABLE "user" DROP COLUMN session_version')
     con.execute("ALTER TABLE preferences DROP COLUMN recommendations_opt_in")
     con.execute("ALTER TABLE connection DROP COLUMN recorded")
     con.execute("INSERT INTO user (name, interests, created_at, updated_at) VALUES ('Old', '[]', '2026-01-01', '2026-01-01')")

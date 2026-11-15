@@ -66,6 +66,10 @@ class User(SQLModel, table=True):
     # LinkedIn picture to our own storage because LinkedIn's image URLs expire.
     photo_path: Optional[str] = None
 
+    # Part of every login token. Incrementing it invalidates all of this
+    # user's existing tokens (see security.current_user).
+    session_version: int = 0
+
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

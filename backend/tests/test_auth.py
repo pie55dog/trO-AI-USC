@@ -152,3 +152,11 @@ def test_email_of_another_linkedin_account_is_not_claimed(client, db, fake_linke
     me = client.get("/users/me", headers={"Authorization": f"Bearer {second['token']}"}).json()
     assert second["new_user"] == "1" and me["profile"]["email"] is None
     assert first["token"] != second["token"]
+
+
+def test_reclaiming_signs_out_whoever_made_the_account(client):
+    """Account pre-hijacking: an attacker who signed up with the victim's email loses access once the victim signs in."""
+    squatter = client.post("/users", json={"name": "Attacker", "email": "tommy@usc.edu"}).json()["token"]
+    victim = finish_login(client, start_login(client))["token"]
+    assert client.get("/users/me", headers={"Authorization": f"Bearer {squatter}"}).status_code == 401
+    assert client.get("/users/me", headers={"Authorization": f"Bearer {victim}"}).status_code == 200

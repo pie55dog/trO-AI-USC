@@ -136,7 +136,7 @@ def sign_up(
         session.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "an account with this email already exists") from None
     session.refresh(user)
-    return SignUpOut(token=issue_token(settings, user.id), me=me_out(session, user))
+    return SignUpOut(token=issue_token(settings, user.id, user.session_version), me=me_out(session, user))
 
 
 @router.get("/users/me", response_model=MeOut)

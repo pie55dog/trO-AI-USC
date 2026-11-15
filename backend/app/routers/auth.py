@@ -121,7 +121,7 @@ def linkedin_callback(
                     session.add(user)
                     session.commit()
 
-    return _frontend_redirect(settings, token=issue_token(settings, user.id), new_user="1" if is_new else "0")
+    return _frontend_redirect(settings, token=issue_token(settings, user.id, user.session_version), new_user="1" if is_new else "0")
 
 
 def _upsert_user(session: Session, profile: linkedin.LinkedInProfile) -> tuple[User, bool]:
@@ -142,8 +142,10 @@ def _upsert_user(session: Session, profile: linkedin.LinkedInProfile) -> tuple[U
             # LinkedIn has verified this person owns the address, so this is
             # their account: link it. That lets people who lost their login
             # get back in, and stops an email typed by someone else from
-            # locking the real owner out.
+            # locking the real owner out. Bumping session_version signs out
+            # whoever created it, in case that wasn't the owner.
             owner.linkedin_sub = profile.sub
+            owner.session_version += 1
             owner.updated_at = utcnow()
             session.add(owner)
             session.commit()
