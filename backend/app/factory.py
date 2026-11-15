@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import ai
 from .config import Settings, load_settings
 from .db import make_engine
-from .routers import admin, auth, bracelets, events, notes, users
+from .routers import admin, auth, bracelets, events, notes, organizer, users
 
 
 def create_app(
@@ -49,7 +49,7 @@ def create_app(
         allow_headers=["*"],
     )
 
-    for module in (auth, users, events, notes, bracelets, admin):
+    for module in (auth, users, events, notes, organizer, bracelets, admin):
         app.include_router(module.router)
 
     @app.get("/health", tags=["meta"])

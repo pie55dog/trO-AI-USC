@@ -213,10 +213,27 @@ export function wakeServer(): void {
   if (!PREVIEW) fetch(`${API_URL}/health`).catch(() => undefined);
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+const ADMIN_KEY = "tro.adminKey";
+
+/** The organizer key (X-Admin-Key) the organizer console signed in with. */
+export const adminKeyStore = {
+  get: () => storageGet(ADMIN_KEY),
+  set: (key: string | null) => storageSet(ADMIN_KEY, key),
+};
+
+/**
+ * `auth: "admin"` sends the organizer key instead of the attendee login, for
+ * the organizer console (see organizerApi.ts).
+ */
+export async function request<T>(path: string, init: RequestInit = {}, auth: "user" | "admin" = "user"): Promise<T> {
   const headers = new Headers(init.headers);
-  const token = tokenStore.get();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (auth === "admin") {
+    const key = adminKeyStore.get();
+    if (key) headers.set("X-Admin-Key", key);
+  } else {
+    const token = tokenStore.get();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   let resp: Response;
@@ -228,7 +245,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (resp.status === 204) return undefined as T;
   const body = await resp.json().catch(() => null);
   if (!resp.ok) {
-    if (resp.status === 401) tokenStore.set(null); // expired or deleted account
+    // Expired or deleted account, or an organizer key that was changed.
+    if (resp.status === 401) (auth === "admin" ? adminKeyStore : tokenStore).set(null);
     throw new ApiError(resp.status, errorMessage(resp.status, body), (body as { detail?: unknown })?.detail);
   }
   return body as T;

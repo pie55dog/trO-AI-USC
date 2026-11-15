@@ -70,6 +70,12 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | bracelet | `POST /bracelets/tap` | Live tap: `{"device", "peer", "rssi"}`. Answers `waiting` until the other bracelet reports the same tap, then `paired` with `peer_name` and `match_pct`. 409 = not linked. `peer: ""` is a manual (button) tap |
 | bracelet | `POST /bracelets/star` | `{"device"}`: star the wearer's latest connection (shown on the dashboard and in the email) |
 | bracelet | `POST /bracelets/recordings` | Mic build: one audio clip as the raw body (`?device&kind=conversation\|voice_note&connection_id&started_at`). 403 unless both people consent. Transcribed and turned into notes in the background |
+| organizer | `GET /admin/check` | Confirm an organizer key works (the organizer console signs in with it) |
+| organizer | `PATCH /events/{id}` | Edit an event's name, location or start time |
+| organizer | `GET /events/{id}/overview` | Counts: attendees, recording consent, email opt-in, connections, uploads, emails sent/failed |
+| organizer | `GET /events/{id}/attendees` | Everyone holding a bracelet, with consent, tap count and email status |
+| organizer | `POST /events/{id}/attendees` | Check-in desk: link a bracelet to an attendee by the email on their trO profile |
+| organizer | `DELETE /events/{id}/attendees/{user_id}` | Take a bracelet back so it can go to someone else |
 | bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, `event_id` (required once a bracelet is reused), `payload` (JSON text), `files` |
 
 Auth: attendees send `Authorization: Bearer <token>` (from the sign-in

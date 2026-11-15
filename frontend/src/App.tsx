@@ -8,6 +8,7 @@
  *   /e/:eventId/notes/:userId  conversation notes for one person you met
  *   /demo                    demo hub linking every screen (home page on preview builds)
  *   /demo/notes              a labelled sample of what a recorded conversation looks like
+ *   /organizer/*             organizer console: set up events, registration, summary emails
  *   /auth/callback           LinkedIn sign-in returns here
  */
 
@@ -20,6 +21,7 @@ import AuthCallback from "./screens/AuthCallback";
 import Demo, { DEMO_EVENT } from "./screens/Demo";
 import EventHome from "./screens/EventHome";
 import PersonNotesScreen, { NotesView } from "./screens/PersonNotes";
+import Organizer from "./screens/organizer/Organizer";
 import Preferences from "./screens/Preferences";
 import { SAMPLE_NOTES } from "./sampleNotes";
 import Tutorial from "./screens/Tutorial";
@@ -69,6 +71,7 @@ export default function App() {
       <Route path="/e/:eventId/preferences" element={<PerEvent><Preferences /></PerEvent>} />
       <Route path="/e/:eventId/tutorial" element={<PerEvent><Tutorial /></PerEvent>} />
       <Route path="/e/:eventId/notes/:userId" element={<PerEvent><PersonNotesScreen /></PerEvent>} />
+      <Route path="/organizer/*" element={<Organizer />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

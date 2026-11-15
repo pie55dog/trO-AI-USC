@@ -1,5 +1,6 @@
 """Organizer tools (header X-Admin-Key).
 
+    GET  /admin/check        confirm an organizer key works (the console signs in with it)
     POST /admin/email/test   send a test email to check SMTP settings
 """
 
@@ -15,6 +16,12 @@ from ..schemas import TestEmailRequest
 from ..security import get_settings, require_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+
+
+@router.get("/check")
+def check_key(settings: Annotated[Settings, Depends(get_settings)]) -> dict:
+    """200 if the X-Admin-Key header is right. Also says how email is set up."""
+    return {"ok": True, "email_backend": settings.email_backend}
 
 
 @router.post("/email/test")

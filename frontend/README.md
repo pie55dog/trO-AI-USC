@@ -60,6 +60,22 @@ Every push to `main` that touches `frontend/` deploys the app to
 4. **Dashboard** (`/e/:id`). The user's connections, with only the contact info each person chose to share.
    It also says whether each conversation was recorded (both people consented) or contact only.
 
+## Organizer console
+
+`/organizer` (e.g. `https://pie55dog.github.io/trO-AI-USC/organizer`) is for event planners. Sign in with the
+server's `ADMIN_API_KEY`; it's kept in this browser until **Sign out**. It's built for a laptop at the check-in
+desk but works on a phone.
+
+- **New event**: name, place and start time.
+- **Registration**: the attendee link with a downloadable QR code, a generator for each bracelet's tap link (to
+  write to its NFC tag), and a check-in desk form that links a bracelet to someone by their profile email.
+- **Attendees**: everyone holding a bracelet, with recording consent, taps and email status. Search, export CSV,
+  and take a bracelet back so it can go to someone else. Refreshes every 15 seconds.
+- **After the event**: send the summary emails (asks first, safe to re-run) and send a test email.
+- **Details**: edit the name, place and time.
+
+It needs a backend, so a preview build (no `VITE_API_URL`) only shows the sign-in page with a note.
+
 ## Differences from Figma, on purpose
 
 - "event" shows the real event name once it loads, and falls back to "event".
