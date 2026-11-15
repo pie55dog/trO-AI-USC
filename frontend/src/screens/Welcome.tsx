@@ -2,10 +2,9 @@
  * Step 1 of 2: "Welcome to event." Summary email + profile.
  * Figma: "Refined / Welcome to event" (node 27:2).
  *
- * Works two ways:
- * "Continue" creates the account from name + email. What the user typed is
- * saved as a draft, so a reload never loses it. (LinkedIn sign-in still exists
- * on the backend; the button is not shown on this screen.)
+ * "Continue" creates the account from name + email. If the phone already has
+ * a token (signed in earlier), the saved profile fills any empty fields.
+ * What the user typed is saved as a draft, so a reload never loses it.
  */
 
 import { Camera, Mail, Plus, Watch } from "lucide-react";
@@ -84,7 +83,7 @@ export default function Welcome() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load the account if we have a token (e.g. just back from LinkedIn).
+  // Load the account if we have a token (e.g. signed in earlier).
   useEffect(() => {
     if (!tokenStore.get()) {
       setLoading(false);
@@ -190,7 +189,7 @@ export default function Welcome() {
       navigate(`/e/${eventId}/preferences`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setErrors((e) => ({ ...e, email: "This email already has an account. Use another, or pull from LinkedIn." }));
+        setErrors((e) => ({ ...e, email: "This email already has an account. Use another one." }));
       } else {
         setSubmitError(err instanceof ApiError ? err.message : "Couldn't save your profile.");
       }

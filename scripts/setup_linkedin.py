@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn on "Pull from LinkedIn" (run via scripts/setup-linkedin.sh).
+"""Turn on LinkedIn sign-in (backend /auth/linkedin) (run via scripts/setup-linkedin.sh).
 
 Asks for your LinkedIn app's Client ID and Client Secret in the terminal (the
 secret is hidden and never leaves this computer) and saves them to

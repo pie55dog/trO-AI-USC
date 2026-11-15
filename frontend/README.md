@@ -50,9 +50,9 @@ Every push to `main` that touches `frontend/` deploys the app to
 ## Flow
 
 1. **Welcome** (`/e/:id/welcome`). The user enters the email the summary goes to, then their profile: name, school,
-   major, an optional bio of up to 20 words, an optional position, interests, links and a photo. **Continue** creates
-   the account from name and email. The form is saved as a draft, so a reload never loses what the user typed.
-   (The backend still supports LinkedIn sign-in, but the screen doesn't show a button for it.)
+   major, an optional bio (up to 20 words), an optional position, interests, links and a photo. **Continue**
+   creates the account from name and email. The form is saved as a draft, so a reload never loses what the user
+   typed.
 2. **Preferences** (`/e/:id/preferences`). Recording consent and recommendations both start unanswered. Finish
    is disabled until both are picked. Finishing links the tapped bracelet to the attendee.
 3. **Tutorial** (`/e/:id/tutorial`). The gray circles are placeholders for the 3D animations. Each has a
