@@ -60,11 +60,26 @@ a few seconds the old and new servers overlap, and a sign-up made during that ti
   first request takes a few seconds. Open the app once just before you start.
 - **Hotspot:** phones and bracelets only need internet access. The backend is public https,
   so any network works.
-- **Bracelets** call the backend over **https** with the header `X-Bracelet-Key`. Get the key
-  with `gcloud secrets versions access latest --secret=tro-bracelet-key` and give it to the
-  firmware team privately. On an ESP32, `WiFiClientSecure` with `setInsecure()` is enough for a demo.
+- **Bracelets:** see the firmware section below.
 - **Sending the post-event emails:** organizers use the `X-Admin-Key` header
   (`--secret=tro-admin-key`). See `backend/README.md`.
+
+## For the firmware team (Seeed XIAO ESP32-S3)
+
+- **Endpoint:** `POST https://<backend address>/bracelets/uploads`, as a multipart form with
+  `bracelet_id` (required), `event_id` (optional), `payload` (optional JSON text), and
+  `files` (optional, repeatable, for audio). Full details are at the top of
+  `backend/app/routers/bracelets.py`, and live docs are at `https://<backend address>/docs`.
+- **Auth:** header `X-Bracelet-Key: <key>`. Grace gets the key with
+  `gcloud secrets versions access latest --secret=tro-bracelet-key` and shares it privately.
+  Keep it out of the firmware repo, for example in an untracked `secrets.h`.
+- **HTTPS only.** In Arduino, use `WiFiClientSecure` with `HTTPClient`. For the demo,
+  `client.setInsecure()` is fine. To verify the server properly, load Google's root CA
+  (GTS Root R1 from https://pki.goog/repository/) with `client.setCACert(...)`.
+- **Size limit:** Cloud Run rejects any single request over **32 MB**, so send long audio
+  in several uploads.
+- **Wake-up delay:** the first request after a quiet stretch can take a few seconds, so use
+  an HTTP timeout of at least 30 seconds.
 
 ## After the demo
 
