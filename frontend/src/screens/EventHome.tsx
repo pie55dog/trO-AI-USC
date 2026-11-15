@@ -1,6 +1,6 @@
 /**
  * The event dashboard: everyone you've tapped.
- * Figma: "Refined / event (connections)" (node 29:51).
+ * Figma: "Refined / event (connections) (Dark)" on Page 4.
  *
  * Connections come from GET /events/{id}/connections. They appear once the
  * bracelet data is processed (not built yet), so for now most people will
@@ -8,19 +8,23 @@
  * need the AI step, so they aren't shown with made-up values.
  */
 
-import { Copy, FileText, Globe, Mail, Mic, Play, Watch } from "lucide-react";
+import { ChevronRight, Copy, FileText, Globe, Mail, Mic, Play, Watch } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Connection, type Me } from "../api";
 import {
+  Button,
+  buttonClass,
+  Card,
+  cx,
   DisplayTitle,
   ErrorNote,
+  Icon,
   IconBubble,
   InstagramIcon,
   LinkedinIcon,
   Loading,
   Screen,
-  SecondaryButton,
   StatusPill,
 } from "../components/ui";
 import { useEventContext } from "../hooks";
@@ -28,12 +32,13 @@ import { braceletStore } from "../session";
 
 type Tab = "connected" | "recommendations";
 
-function Badge({ dark, icon, children }: { dark?: boolean; icon?: ReactNode; children: ReactNode }) {
+function Badge({ tone, icon, children }: { tone: "yellow" | "glass"; icon?: ReactNode; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full py-1 pr-2.5 pl-2 text-caption font-semibold ${
-        dark ? "bg-ink text-white" : "bg-soft text-ink"
-      }`}
+      className={cx(
+        "inline-flex items-center gap-1 rounded-full py-1 pr-2.5 pl-2 text-label-s font-semibold",
+        tone === "yellow" ? "bg-yellow text-dark" : "bg-white/30 text-highlight",
+      )}
     >
       {icon}
       {children}
@@ -41,16 +46,28 @@ function Badge({ dark, icon, children }: { dark?: boolean; icon?: ReactNode; chi
   );
 }
 
-/** Rounded outline action ("LinkedIn", "Copy email"...), 44px tall. */
-function ReachAt({ href, onClick, icon, children }: { href?: string; onClick?: () => void; icon: ReactNode; children: ReactNode }) {
-  const cls = "flex min-h-11 items-center gap-1.5 rounded-full border border-line py-3 pr-3.5 pl-3 text-caption font-semibold";
+/** Glass pill action ("LinkedIn", "Email"...), 40px tall. */
+function ReachAt({
+  href,
+  onClick,
+  icon,
+  label,
+  children,
+}: {
+  href?: string;
+  onClick?: () => void;
+  icon: ReactNode;
+  label?: string;
+  children: ReactNode;
+}) {
+  const cls = "flex min-h-10 items-center gap-1.5 rounded-full bg-white/20 py-3 pr-3.5 pl-3 text-label-s font-semibold text-highlight";
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
       {icon}
       {children}
     </a>
   ) : (
-    <button type="button" onClick={onClick} className={cls}>
+    <button type="button" onClick={onClick} aria-label={label} className={cls}>
       {icon}
       {children}
     </button>
@@ -80,55 +97,56 @@ export function ConnectionCard({ person }: { person: Connection }) {
   };
 
   const reach = [
-    c.linkedin_url && <ReachAt key="li" href={c.linkedin_url} icon={<LinkedinIcon className="size-4" />}>LinkedIn</ReachAt>,
+    c.linkedin_url && <ReachAt key="li" href={c.linkedin_url} icon={<LinkedinIcon />}>LinkedIn</ReachAt>,
     c.email && (
-      <ReachAt key="em" onClick={copyEmail} icon={<Copy aria-hidden className="size-4" />}>
-        {copied ? "Copied" : "Copy email"}
+      <ReachAt key="em" onClick={copyEmail} label={copied ? "Email copied" : "Copy email"} icon={<Icon icon={Copy} />}>
+        {copied ? "Copied" : "Email"}
       </ReachAt>
     ),
-    c.portfolio_url && <ReachAt key="pf" href={c.portfolio_url} icon={<Globe aria-hidden className="size-4" />}>Portfolio</ReachAt>,
-    c.website && <ReachAt key="ws" href={c.website} icon={<Globe aria-hidden className="size-4" />}>Website</ReachAt>,
-    c.instagram && <ReachAt key="ig" href={instagramUrl(c.instagram)} icon={<InstagramIcon className="size-4" />}>Instagram</ReachAt>,
+    c.portfolio_url && <ReachAt key="pf" href={c.portfolio_url} icon={<Icon icon={Globe} />}>Portfolio</ReachAt>,
+    c.website && <ReachAt key="ws" href={c.website} icon={<Icon icon={Globe} />}>Website</ReachAt>,
+    c.instagram && <ReachAt key="ig" href={instagramUrl(c.instagram)} icon={<InstagramIcon />}>Instagram</ReachAt>,
   ].filter(Boolean);
 
   return (
-    <article className="flex flex-col gap-4 rounded-[20px] border border-line px-5 pt-5 pb-2">
+    <Card as="article" className="flex flex-col gap-4 px-5 pt-5 pb-2">
       <div className="flex items-start gap-4">
         {photo ? (
           <img src={photo} alt="" className="size-16 shrink-0 rounded-full object-cover" />
         ) : (
-          <span aria-hidden className="size-16 shrink-0 rounded-full bg-soft" />
+          <span aria-hidden className="size-16 shrink-0 rounded-full bg-highlight" />
         )}
-        <div className="flex min-w-0 flex-col gap-1">
-          <h3 className="text-body font-semibold">{person.name}</h3>
-          {subtitle && <p className="text-caption text-ink-muted italic">{subtitle}</p>}
+        <div className="flex min-w-0 flex-col gap-1 text-highlight">
+          <h3 className="text-label font-medium">{person.name}</h3>
+          {subtitle && <p className="text-caption">{subtitle}</p>}
           <div className="flex gap-1.5 pt-1">
             {person.recorded ? (
-              <Badge dark icon={<Mic aria-hidden className="size-3" />}>Recorded</Badge>
+              <Badge tone="yellow" icon={<Icon icon={Mic} size={12} />}>Recorded</Badge>
             ) : (
-              <Badge>Contact only</Badge>
+              <Badge tone="glass">Contact only</Badge>
             )}
           </div>
         </div>
       </div>
-      {person.bio && <p className="text-body text-ink-body">{person.bio}</p>}
+      {person.bio && <p className="text-body text-highlight">{person.bio}</p>}
       {reach.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-caption font-semibold text-ink-muted">Reach at</p>
+          <p className="text-label-s font-semibold text-highlight">Reach at</p>
           <div className="flex flex-wrap gap-2">{reach}</div>
         </div>
       )}
-      <div className="h-px w-full bg-line" />
-      <div className="flex items-center gap-3 pt-2 pb-3">
-        <FileText aria-hidden className="size-5 shrink-0" />
-        <div className="flex flex-col gap-0.5">
-          <p className="text-body font-semibold">Conversation notes</p>
-          <p className="text-caption text-ink-muted">
-            {person.recorded ? "AI summary and your voice notes" : "Your voice notes"} arrive in your summary email.
+      <div className="h-px w-full bg-highlight" />
+      <div className="flex items-center gap-3 pt-2 pb-3 text-highlight">
+        <Icon icon={FileText} size={20} />
+        <div className="flex flex-1 flex-col gap-0.5">
+          <p className="text-label font-medium">Conversation notes</p>
+          <p className="text-caption">
+            {person.recorded ? "AI summary · voice notes · in your email" : "Voice notes · in your email"}
           </p>
         </div>
+        <Icon icon={ChevronRight} size={20} />
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -181,11 +199,13 @@ export default function EventHome() {
   if (needsOnboarding) return <Navigate to={tokenStore.get() ? `/e/${eventId}/welcome` : `/e/${eventId}/tutorial`} replace />;
   if (error)
     return (
-      <Screen className="gap-4">
-        <ErrorNote>{error}</ErrorNote>
-        <button type="button" onClick={() => void load()} className="min-h-11 self-start text-body font-semibold underline">
-          Try again
-        </button>
+      <Screen className="gap-4 pt-[31px]">
+        <div className="relative flex flex-col gap-4">
+          <ErrorNote>{error}</ErrorNote>
+          <button type="button" onClick={() => void load()} className="min-h-11 self-start text-body font-semibold underline">
+            Try again
+          </button>
+        </div>
       </Screen>
     );
   if (!me || people === null) return <Screen><Loading label="Loading your connections" /></Screen>;
@@ -193,32 +213,29 @@ export default function EventHome() {
   const wantsRecs = me.preferences.recommendations_opt_in;
 
   return (
-    <Screen className="gap-8 pb-10">
-      <section className="flex flex-col gap-4">
-        <StatusPill icon={<Watch />}>
-          {bracelet ? `Bracelet ${bracelet} · Summary by email` : "No bracelet linked. Ask staff at check-in."}
+    <Screen className="gap-8 pt-[31px] pb-10">
+      <section className="relative flex flex-col gap-4">
+        <StatusPill icon={<Icon icon={Watch} />}>
+          {bracelet ? `Bracelet ${bracelet}` : "No bracelet linked. Ask staff at check-in."}
         </StatusPill>
-        <DisplayTitle>{eventName}</DisplayTitle>
-        <p className="text-body text-ink-body">
+        <DisplayTitle>{eventName}.</DisplayTitle>
+        <p className="text-body text-highlight">
           You’re using trO to keep your connections with the Trojan family. Everyone you tap shows up here, and you’ll get
           the same list by email with ways to follow up and any notes you took.
         </p>
-        <Link
-          to={`/e/${eventId}/tutorial`}
-          className="flex min-h-11 items-center gap-2 self-start rounded-full border border-line py-3 pr-4 pl-3.5 text-body font-semibold"
-        >
-          <Play aria-hidden className="size-3.5" />
+        <Link to={`/e/${eventId}/tutorial`} className={buttonClass("primary", "self-start")}>
+          <Icon icon={Play} />
           Tutorial
         </Link>
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="flex items-baseline gap-2 text-title font-semibold">
+        <h2 className="flex items-baseline gap-2 text-title font-semibold text-highlight">
           Your Connections
-          <span className="font-mono font-medium text-ink-muted tabular-nums">{people.length}</span>
+          <span className="text-yellow tabular-nums">{people.length}</span>
         </h2>
 
-        <div role="tablist" className="flex gap-1 rounded-[14px] bg-soft p-1">
+        <div role="tablist" className="flex gap-1 rounded-[13px] bg-highlight p-1">
           {(["connected", "recommendations"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -226,9 +243,10 @@ export default function EventHome() {
               type="button"
               aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`min-h-[41px] flex-1 rounded-[10px] text-body font-semibold transition-colors ${
-                tab === t ? "bg-bg text-ink shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "text-ink-muted"
-              }`}
+              className={cx(
+                "min-h-[37px] flex-1 py-2.5 text-label font-medium transition-colors",
+                tab === t ? "rounded-[15px] bg-highlight text-dark shadow-[0_1px_3px_rgba(0,0,0,0.08)]" : "rounded-[10px] text-dark/50",
+              )}
             >
               {t === "connected" ? "Connected" : "Recommendations"}
             </button>
@@ -250,7 +268,7 @@ export default function EventHome() {
         ) : (
           <Empty title="Recommendations are off">
             You chose not to get recommendations.{" "}
-            <Link to={`/e/${eventId}/preferences`} className="font-semibold text-ink underline">
+            <Link to={`/e/${eventId}/preferences`} className="font-semibold text-highlight underline">
               Change preferences
             </Link>
           </Empty>
@@ -284,38 +302,36 @@ export function TestEmail({ eventId, email }: { eventId: number; email: string |
   };
 
   return (
-    <section className="flex flex-col gap-3 rounded-[20px] border border-line p-5">
+    <Card className="flex flex-col gap-3 bg-[rgb(27_24_25/0.6)] p-5">
       <div className="flex items-start gap-3">
-        <IconBubble>
-          <Mail />
+        <IconBubble tone="maroon">
+          <Icon icon={Mail} size={20} />
         </IconBubble>
         <div className="flex flex-col gap-0.5">
-          <p className="text-body font-semibold text-ink">Test your summary email</p>
-          <p className="text-caption text-ink-muted">
+          <p className="text-label font-medium text-highlight">Test your summary email</p>
+          <p className="text-caption text-highlight/50">
             {email ? `We’ll send ${email} your summary as it looks right now.` : "Add an email to your profile first."}
           </p>
         </div>
       </div>
-      <div className="flex">
-        <SecondaryButton type="button" onClick={() => void send()} disabled={!email || state.status === "sending"}>
-          {state.status === "sending" ? "Sending…" : state.status === "sent" ? "Send again" : "Send me a test email"}
-        </SecondaryButton>
-      </div>
+      <Button type="button" variant="soft" arrow={false} onClick={() => void send()} disabled={!email || state.status === "sending"}>
+        {state.status === "sending" ? "Sending…" : state.status === "sent" ? "Send again" : "Send me a test email"}
+      </Button>
       {state.status === "sent" && (
-        <p role="status" className="text-caption text-ink-body">
+        <p role="status" className="text-caption text-highlight">
           {state.message}
         </p>
       )}
       {state.status === "error" && <ErrorNote>{state.message}</ErrorNote>}
-    </section>
+    </Card>
   );
 }
 
 function Empty({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 rounded-[20px] border border-dashed border-line p-6 text-center">
-      <p className="text-body font-semibold">{title}</p>
-      <p className="text-caption text-ink-muted">{children}</p>
+    <div className="flex flex-col gap-1 rounded-[20px] border border-dashed border-highlight/30 bg-highlight/[0.06] p-6 text-center">
+      <p className="text-label font-medium text-highlight">{title}</p>
+      <p className="text-caption text-highlight/70">{children}</p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * Step 1 of 2: "Welcome to event." Summary email + profile.
- * Figma: "Refined / Welcome to event" (node 27:2).
+ * Figma: "Refined / Welcome to event (Dark)" on Page 4.
  *
  * "Continue" creates the account from name + email. If the phone already has
  * a token (signed in earlier), the saved profile fills any empty fields.
@@ -8,20 +8,24 @@
  */
 
 import { Camera, Mail, Plus, Watch } from "lucide-react";
+import summaryCard from "../assets/summary-card.png";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Me } from "../api";
 import {
+  Button,
   Chip,
   DisplayTitle,
   ErrorNote,
   Field,
+  Icon,
+  inputClass,
   LinkedinIcon,
   Loading,
   PrimaryButton,
   Screen,
-  SecondaryButton,
   StatusPill,
+  StepIndicator,
   StickyCta,
 } from "../components/ui";
 import { useEventContext, wordCount } from "../hooks";
@@ -200,13 +204,19 @@ export default function Welcome() {
 
   if (loading) return <Screen><Loading /></Screen>;
 
-  const words = wordCount(draft.bio);
   const shownPhoto = pendingPreview ?? photoUrl;
 
   return (
-    <Screen>
-      <form onSubmit={onSubmit} noValidate className="flex flex-1 flex-col gap-8">
-        {braceletId && <StatusPill icon={<Watch />}>Bracelet {braceletId} linked to this phone</StatusPill>}
+    <Screen className="pt-[31px]">
+      <form onSubmit={onSubmit} noValidate className="relative flex flex-1 flex-col gap-8">
+        <div className="flex items-center justify-between gap-2">
+          {braceletId ? (
+            <StatusPill icon={<Icon icon={Watch} />}>Bracelet {braceletId} linked</StatusPill>
+          ) : (
+            <span />
+          )}
+          <StepIndicator step={1} />
+        </div>
 
         <section className="flex flex-col gap-3">
           <DisplayTitle>
@@ -214,20 +224,22 @@ export default function Welcome() {
             <br />
             {eventName}.
           </DisplayTitle>
-          <p className="text-body text-ink-body">
+          <p className="text-body text-highlight">
             You’re using trO, a smart wristband that helps you keep your connections with the Trojan family.
           </p>
         </section>
 
-        <section className="flex flex-col gap-3 rounded-[20px] bg-soft p-5">
-          <div className="flex items-start gap-3">
-            <Mail aria-hidden className="size-5 shrink-0" />
-            <p className="text-body font-semibold">
+        <section className="glass relative flex flex-col gap-3 overflow-hidden rounded-[20px] p-5">
+          <img aria-hidden src={summaryCard} alt="" className="pointer-events-none absolute inset-0 size-full object-cover opacity-40" />
+          <div className="relative flex items-start gap-3">
+            <Icon icon={Mail} size={20} />
+            <p className="text-label font-medium text-highlight">
               After the event, you’ll get one email with everyone you connected with: contact info, bios, and how to
               follow up.
             </p>
           </div>
           <Field
+            className="relative"
             label="Send my summary to"
             type="email"
             inputMode="email"
@@ -235,21 +247,20 @@ export default function Welcome() {
             placeholder="ttrojan@usc.edu"
             value={draft.email}
             onChange={(e) => set("email", e.target.value)}
-            hint="Use your USC email if you have one."
             error={errors.email}
           />
         </section>
 
         <section className="flex flex-col gap-6">
-          <header className="flex flex-col gap-1">
+          <header className="flex flex-col gap-1 text-highlight">
             <h2 className="text-title font-semibold">Build your profile</h2>
-            <p className="text-body text-ink-muted">This is what gets sent to the people you connect with.</p>
+            <p className="text-body">This is what gets sent to the people you connect with.</p>
           </header>
 
           <Field
             label="Name"
             autoComplete="name"
-            placeholder="Tommy Trojan"
+            placeholder="e.g. Tommy Trojan"
             value={draft.name}
             onChange={(e) => set("name", e.target.value)}
             error={errors.name}
@@ -258,7 +269,6 @@ export default function Welcome() {
             <Field
               className="flex-1"
               label="School"
-              placeholder="Viterbi"
               value={draft.school}
               onChange={(e) => set("school", e.target.value)}
               error={errors.school}
@@ -266,19 +276,15 @@ export default function Welcome() {
             <Field
               className="flex-1"
               label="Major"
-              placeholder="Comp. Sci."
               value={draft.major}
               onChange={(e) => set("major", e.target.value)}
               error={errors.major}
             />
           </div>
           <Field
-            multiline
-            label={`Bio (optional) · up to ${BIO_MAX} words`}
-            placeholder="Junior building tools for student orgs. Into AI and hackathons."
+            label={`Bio · 5–${BIO_MAX} words · optional`}
             value={draft.bio}
             onChange={(e) => set("bio", e.target.value)}
-            hint={`${words} of ${BIO_MAX} words`}
             error={errors.bio}
           />
           <Field
@@ -289,7 +295,7 @@ export default function Welcome() {
           />
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-caption font-semibold">Interests</legend>
+            <legend className="mb-2 text-label-s font-semibold">Interests</legend>
             <div className="flex flex-wrap gap-2">
               {[...INTEREST_OPTIONS, ...draft.interests.filter((i) => !INTEREST_OPTIONS.includes(i))].map((name) => (
                 <Chip key={name} selected={draft.interests.includes(name)} onClick={() => toggleInterest(name)}>
@@ -312,43 +318,41 @@ export default function Welcome() {
                     }
                   }}
                   onBlur={addOther}
-                  className="min-h-11 rounded-full border border-ink px-4 text-caption"
+                  className="min-h-10 rounded-full border border-highlight bg-[rgb(27_24_25/0.2)] px-4 text-caption text-highlight placeholder:text-highlight/45"
                 />
               )}
             </div>
-            <p className={errors.interests ? "text-caption text-danger" : "text-caption text-ink-muted"}>
-              {errors.interests ?? "Pick a few. They help match you with people you’d click with."}
-            </p>
+            {errors.interests && <p className="text-caption text-danger">{errors.interests}</p>}
           </fieldset>
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-caption font-semibold">Links · optional</h3>
+            <h3 className="text-label-s font-semibold">Links · optional</h3>
             <div className="flex items-center gap-2">
-              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-soft">
-                <LinkedinIcon className="size-5" />
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-highlight text-dark">
+                <LinkedinIcon size={20} />
               </span>
               <input
                 aria-label="LinkedIn profile"
                 inputMode="url"
-                placeholder="linkedin.com/in/tommytrojan"
+                placeholder="e.g. linkedin.com/in/tommytrojan"
                 value={draft.linkedin_url}
                 onChange={(e) => set("linkedin_url", e.target.value)}
-                className="min-w-0 flex-1 rounded-xl border border-line px-4 py-[13px] text-body placeholder:text-ink-muted"
+                className={inputClass()}
               />
             </div>
             {showMoreLinks || hasExtraLinks ? (
               <div className="flex flex-col gap-4 pt-2">
-                <Field label="Portfolio" inputMode="url" placeholder="behance.net/you" value={draft.portfolio_url} onChange={(e) => set("portfolio_url", e.target.value)} />
-                <Field label="Website" inputMode="url" placeholder="you.dev" value={draft.website} onChange={(e) => set("website", e.target.value)} />
-                <Field label="Instagram" placeholder="@tommytrojan" value={draft.instagram} onChange={(e) => set("instagram", e.target.value)} />
+                <Field label="Portfolio" inputMode="url" placeholder="e.g. behance.net/you" value={draft.portfolio_url} onChange={(e) => set("portfolio_url", e.target.value)} />
+                <Field label="Website" inputMode="url" placeholder="e.g. you.dev" value={draft.website} onChange={(e) => set("website", e.target.value)} />
+                <Field label="Instagram" placeholder="e.g. @tommytrojan" value={draft.instagram} onChange={(e) => set("instagram", e.target.value)} />
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowMoreLinks(true)}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line py-[13px] text-body font-semibold"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-highlight/30 bg-highlight/[0.06] py-[13px] text-label font-medium text-highlight/85"
               >
-                <Plus aria-hidden className="size-4" />
+                <Icon icon={Plus} />
                 Add portfolio, website, or Instagram
               </button>
             )}
@@ -359,19 +363,16 @@ export default function Welcome() {
               {shownPhoto ? (
                 <img src={shownPhoto} alt="Your photo" className="size-[66px] shrink-0 rounded-full object-cover" />
               ) : (
-                <span aria-hidden className="flex size-[66px] shrink-0 items-center justify-center rounded-full border border-dashed border-ink-muted bg-soft">
-                  <Camera className="size-6" />
+                <span aria-hidden className="flex size-[66px] shrink-0 items-center justify-center rounded-full border border-dashed border-highlight/20 bg-highlight/10">
+                  <Icon icon={Camera} size={24} />
                 </span>
               )}
-              <div className="flex flex-col gap-0.5">
-                <p className="text-body font-semibold">{shownPhoto ? "Looking good" : "Add a photo"}</p>
-                <p className="text-caption text-ink-muted">This helps people remember you.</p>
-              </div>
+              <p className="text-label font-medium text-highlight">{shownPhoto ? "Looking good" : "Add a photo"}</p>
             </div>
             <div className="flex gap-2">
-              <SecondaryButton type="button" onClick={() => fileInput.current?.click()}>
+              <Button type="button" variant="soft" className="flex-1" onClick={() => fileInput.current?.click()}>
                 {shownPhoto ? "Change photo" : "Upload photo"}
-              </SecondaryButton>
+              </Button>
             </div>
             <input
               ref={fileInput}
@@ -392,9 +393,9 @@ export default function Welcome() {
           <PrimaryButton type="submit" loading={saving}>
             Continue
           </PrimaryButton>
-          <p className="text-center text-caption text-ink-muted">Step 1 of 2 · Takes about 2 minutes</p>
         </StickyCta>
       </form>
     </Screen>
   );
 }
+

@@ -28,8 +28,8 @@ function Home() {
   if (last) return <Navigate to={`/e/${last}`} replace />;
   return (
     <Screen className="justify-center gap-2 text-center">
-      <h1 className="text-title font-semibold">Tap your bracelet to start</h1>
-      <p className="text-body text-ink-muted">Hold your trO bracelet to your phone to open your event.</p>
+      <h1 className="relative text-title font-semibold text-yellow">Tap your bracelet to start</h1>
+      <p className="relative text-body text-highlight">Hold your trO bracelet to your phone to open your event.</p>
     </Screen>
   );
 }

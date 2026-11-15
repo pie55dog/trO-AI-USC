@@ -1,42 +1,51 @@
 @import "tailwindcss";
 
 /*
-  Design tokens from the refined Figma frames (grayscale, no branding).
-  Type scale: 40 / 20 / 14 / 12. Margins: 24px. Radius: 12 inputs, 14 buttons,
-  20 cards, full for chips.
+  Design tokens from the dark Figma screens (Page 4, "(Dark)" frames).
+  Colors: highlight #FCFCF9, yellow #FDE872, dark #261213, dark-dark #0F0404.
+  Type: Libertinus Sans for the 40px display line, Instrument Sans for the rest
+  (Title 22, Body 14, Label 14 medium, Caption 12, Label S 12 semibold).
+  Margins: 25px. Radius: 12 inputs, 20 cards, 50 buttons, full for chips.
 */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Libertinus Sans", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --color-bg: #ffffff;
-  --color-ink: #111111;
-  /* Body text 80%, muted 60%, borders 10%, soft fills 5% (Figma: ink/body, ink/muted, border, accent/soft). */
-  --color-ink-body: rgb(17 17 17 / 0.8);
-  --color-ink-muted: rgb(17 17 17 / 0.6);
-  --color-line: rgb(17 17 17 / 0.1);
-  --color-tint: rgb(17 17 17 / 0.05);
-  /* Light gray fill used for pills, icon bubbles and the email card (Figma: soft). */
-  --color-soft: #f2f2f2;
-  /* Gray of the 3D-animation placeholder circles. */
-  --color-placeholder: #d9d9d9;
-  --color-danger: #b42318;
+  --color-highlight: #fcfcf9;
+  --color-yellow: #fde872;
+  --color-dark: #261213;
+  --color-darkest: #0f0404;
+  --color-maroon: #862b2b;
+  --color-danger: #ff8a7a;
+
+  /* Older names kept so every screen shares one palette. */
+  --color-bg: #0f0404;
+  --color-ink: #fcfcf9;
+  --color-ink-body: rgb(252 252 249 / 0.85);
+  --color-ink-muted: rgb(252 252 249 / 0.5);
+  --color-line: rgb(252 252 249 / 0.2);
+  --color-tint: rgb(252 252 249 / 0.06);
+  --color-soft: rgb(252 252 249 / 0.1);
+  --color-placeholder: #fcfcf9;
 
   --text-display: 40px;
   --text-display--line-height: 1.1;
-  --text-display--letter-spacing: -0.8px;
-  --text-title: 20px;
-  --text-title--line-height: 1.3;
+  --text-title: 22px;
+  --text-title--line-height: 1.25;
   --text-body: 14px;
   --text-body--line-height: 1.5;
+  --text-label: 14px;
+  --text-label--line-height: 1.2;
   --text-caption: 12px;
-  --text-caption--line-height: 1.5;
+  --text-caption--line-height: 1.4;
+  --text-label-s: 12px;
+  --text-label-s--line-height: 1.3;
 }
 
 html,
 body {
-  background: var(--color-bg);
-  color: var(--color-ink);
+  background: var(--color-darkest);
+  color: var(--color-highlight);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -44,9 +53,47 @@ body {
 
 /* Visible focus for keyboard users without changing the tap look. */
 :focus-visible {
-  outline: 2px solid var(--color-ink);
+  outline: 2px solid var(--color-yellow);
   outline-offset: 2px;
 }
+
+/*
+  Figma "Glass" effect (blur 4, light rim) on cards and buttons. CSS has no
+  refraction, so this is a backdrop blur plus a thin light edge that is
+  brighter at the top, the way the glass rim reads in the frames.
+*/
+@utility glass {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow:
+    inset 0 1px 0 rgb(252 252 249 / 0.28),
+    inset 0 0 0 1px rgb(252 252 249 / 0.1);
+}
+
+/* Logo loading animation (Figma "Loading" frames + note). */
+@keyframes tro-bounce {
+  0% { transform: translate(-40px, -60px) rotate(-30deg); opacity: 0; }
+  25% { transform: translate(-10px, -20px) rotate(10deg); opacity: 1; }
+  45% { transform: translate(0, 4px) rotate(-6deg); }
+  60% { transform: translate(0, 0) rotate(0); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+@keyframes tro-reveal {
+  0%, 45% { clip-path: inset(0 100% 100% 0); }
+  80%, 100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes tro-slide {
+  0%, 70% { transform: translateX(-24px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes tro-shift {
+  0%, 70% { transform: translateX(67px); }
+  100% { transform: translateX(0); }
+}
+.tro-logo-mark { animation: tro-shift 1.6s ease-in-out both; }
+.tro-logo-tip { animation: tro-bounce 1.6s ease-out both; transform-box: fill-box; transform-origin: center; }
+.tro-logo-body { animation: tro-reveal 1.6s ease-out both; }
+.tro-logo-word { animation: tro-slide 1.6s ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
   * {
