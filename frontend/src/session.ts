@@ -17,6 +17,7 @@ const LAST_EVENT_KEY = "tro.lastEvent";
 export const braceletStore = {
   get: (eventId: number) => storageGet(braceletKey(eventId)),
   set: (eventId: number, id: string) => storageSet(braceletKey(eventId), id),
+  clear: (eventId: number) => storageSet(braceletKey(eventId), null),
 };
 
 export const lastEventStore = {

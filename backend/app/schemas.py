@@ -175,7 +175,7 @@ class ConnectionOut(BaseModel):
     major: Optional[str]
     bio: Optional[str]
     photo_url: Optional[str]
-    # True only when BOTH people consented, i.e. the bracelet recorded.
+    # Whether this conversation was recorded (both consented at tap time).
     recorded: bool
     # Only the fields this person chose to share, e.g. {"email": "...", "linkedin_url": "..."}.
     contact: dict[str, str]

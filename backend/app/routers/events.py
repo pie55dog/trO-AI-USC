@@ -17,12 +17,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, select
 
 from .. import mailer, post_event
 from ..config import Settings
 from ..db import get_session
-from ..models import SHAREABLE_FIELDS, BraceletAssignment, Connection, Event, Preferences, User, utcnow
+from ..connections import connected_people, shared_contact
+from ..models import BraceletAssignment, Event, Preferences, User, utcnow
 from ..schemas import (
     BraceletAssignmentOut,
     BraceletClaim,
@@ -152,38 +153,21 @@ def my_connections(
     limited to what each person chose to share.
     """
     _event_or_404(session, event_id)
-    rows = session.exec(
-        select(Connection)
-        .where(Connection.event_id == event_id)
-        .where(or_(Connection.user_a_id == user.id, Connection.user_b_id == user.id))
-        .order_by(Connection.tapped_at.desc())
-    ).all()
-    my_prefs = session.get(Preferences, user.id)
-    out = []
-    for row in rows:
-        other_id = row.user_b_id if row.user_a_id == user.id else row.user_a_id
-        other = session.get(User, other_id)
-        if other is None:
-            continue
-        prefs = session.get(Preferences, other_id)
-        shared = prefs.shared_fields if prefs else []
-        contact = {f: getattr(other, f) for f in SHAREABLE_FIELDS if f in shared and getattr(other, f)}
-        recorded = bool(my_prefs and my_prefs.recording_consent and prefs and prefs.recording_consent)
-        out.append(
-            ConnectionOut(
-                user_id=other.id,
-                name=other.name,
-                position=other.position,
-                school=other.school,
-                major=other.major,
-                bio=other.bio,
-                photo_url=photo_url(other),
-                recorded=recorded,
-                contact=contact,
-                tapped_at=row.tapped_at,
-            )
+    return [
+        ConnectionOut(
+            user_id=c.person.id,
+            name=c.person.name,
+            position=c.person.position,
+            school=c.person.school,
+            major=c.person.major,
+            bio=c.person.bio,
+            photo_url=photo_url(c.person),
+            recorded=c.connection.recorded,
+            contact=shared_contact(c.person, c.prefs),
+            tapped_at=c.connection.tapped_at,
         )
-    return out
+        for c in connected_people(session, event_id, user.id, newest_first=True)
+    ]
 
 
 @router.post(

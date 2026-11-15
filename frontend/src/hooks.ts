@@ -16,10 +16,16 @@ export function useEventContext() {
   const eventId = Number(raw);
   const valid = Number.isInteger(eventId) && eventId > 0;
 
-  // Same normalization as the backend: "a4:cf:00:42" -> "A4CF0042".
-  const fromUrl = search.get("b")?.replace(/[\s:-]/g, "").toUpperCase();
-  if (valid && fromUrl) braceletStore.set(eventId, fromUrl);
-  if (valid) lastEventStore.set(eventId);
+  // Read once per screen: re-reading on every render would bring back a
+  // bracelet id a screen deliberately forgot (e.g. one already taken).
+  const [braceletId] = useState(() => {
+    if (!valid) return null;
+    lastEventStore.set(eventId);
+    // Same normalization as the backend: "a4:cf:00:42" -> "A4CF0042".
+    const fromUrl = search.get("b")?.replace(/[\s:-]/g, "").toUpperCase();
+    if (fromUrl) braceletStore.set(eventId, fromUrl);
+    return braceletStore.get(eventId);
+  });
 
   const [event, setEvent] = useState<EventInfo | null>(null);
   useEffect(() => {
@@ -34,7 +40,7 @@ export function useEventContext() {
 
   return {
     eventId: valid ? eventId : null,
-    braceletId: valid ? braceletStore.get(eventId) : null,
+    braceletId,
     // Falls back to the Figma placeholder text until the name loads.
     eventName: event?.name ?? "event",
   };

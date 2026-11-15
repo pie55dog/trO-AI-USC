@@ -195,7 +195,7 @@ def test_connections_show_shared_fields_and_recording_status(client, db, make_us
     me_id, me = make_user(name="Me", consent=True)
     a_id, _ = make_user(name="Alice", consent=True, shared_fields=["linkedin_url"])
     b_id, _ = make_user(name="Bob", consent=False)
-    db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=a_id))
+    db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=a_id, recorded=True))
     db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=b_id))
     db.commit()
 
@@ -212,3 +212,16 @@ def test_connections_empty_and_auth(client, make_user, make_event):
     assert client.get(f"/events/{event_id}/connections", headers=me).json() == []
     assert client.get(f"/events/{event_id}/connections").status_code == 401
     assert client.get("/events/999/connections", headers=me).status_code == 404
+
+
+def test_recorded_is_what_happened_not_current_consent(client, db, make_user, make_event):
+    """Changing consent after the event must not rewrite what was recorded."""
+    from app.models import Connection
+
+    event_id = make_event()
+    me_id, me = make_user(consent=True)
+    other_id, other = make_user(name="Other", consent=True)
+    db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=other_id, recorded=True))
+    db.commit()
+    client.put("/users/me/preferences", json={"recording_consent": False, "recommendations_opt_in": True}, headers=other)
+    assert client.get(f"/events/{event_id}/connections", headers=me).json()[0]["recorded"] is True

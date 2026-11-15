@@ -184,3 +184,25 @@ describe("LinkedIn callback", () => {
     expect(tokenStore.get()).toBeNull();
   });
 });
+
+describe("bracelet already taken", () => {
+  it("still finishes setup and forgets the bracelet", async () => {
+    tokenStore.set("tok");
+    localStorage.setItem("tro.bracelet.1", "A4CF0042");
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
+      const key = `${init.method ?? "GET"} ${new URL(url).pathname}`;
+      if (key === "POST /events/1/bracelet")
+        return new Response(JSON.stringify({ detail: "this bracelet is already assigned to someone else" }), { status: 409 });
+      if (key === "GET /users/me") return new Response(JSON.stringify(me()));
+      if (key === "PUT /users/me/preferences") return new Response(JSON.stringify(me({ recording_consent: false, recommendations_opt_in: false })));
+      return new Response("{}", { status: 404 });
+    }));
+    renderAt("/e/1/preferences", <Preferences />, "/e/:eventId/preferences");
+    const user = userEvent.setup();
+    const finish = await screen.findByRole("button", { name: /finish setup/i });
+    for (const group of screen.getAllByRole("radiogroup")) await user.click(group.querySelector("[aria-checked]")!);
+    await user.click(finish);
+    await screen.findByText("navigated");
+    expect(localStorage.getItem("tro.bracelet.1")).toBeNull();
+  });
+});

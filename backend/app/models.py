@@ -146,6 +146,10 @@ class Connection(SQLModel, table=True):
     user_a_id: int = Field(foreign_key="user.id", index=True)
     user_b_id: int = Field(foreign_key="user.id", index=True)
     tapped_at: datetime = Field(default_factory=utcnow)
+    # Whether the bracelets actually recorded this conversation (both people
+    # had consented at tap time). Stored, not recomputed, so changing consent
+    # later never rewrites what happened.
+    recorded: bool = False
 
 
 class BraceletUpload(SQLModel, table=True):

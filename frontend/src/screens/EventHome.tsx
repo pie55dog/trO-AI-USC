@@ -14,6 +14,7 @@ import { Link, Navigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Connection, type Me } from "../api";
 import { DisplayTitle, ErrorNote, InstagramIcon, LinkedinIcon, Loading, Screen, StatusPill } from "../components/ui";
 import { useEventContext } from "../hooks";
+import { braceletStore } from "../session";
 
 type Tab = "connected" | "recommendations";
 
@@ -143,9 +144,17 @@ export default function EventHome() {
       // This phone tapped a bracelet that isn't linked yet (e.g. a returning
       // attendee at a new event): link it now.
       const assignment = await api.myBracelet(eventId).catch(async (err) => {
-        if (err instanceof ApiError && err.status === 404 && braceletId) return api.claimBracelet(eventId, braceletId);
-        if (err instanceof ApiError && err.status === 404) return null;
-        throw err;
+        if (!(err instanceof ApiError && err.status === 404)) throw err;
+        if (!braceletId) return null;
+        return api.claimBracelet(eventId, braceletId).catch((claimErr) => {
+          // Held by someone else: show "no bracelet linked" instead of an
+          // error that would block the dashboard on every visit.
+          if (claimErr instanceof ApiError && claimErr.status === 409) {
+            braceletStore.clear(eventId);
+            return null;
+          }
+          throw claimErr;
+        });
       });
       setBracelet(assignment?.bracelet_id ?? null);
       setPeople(await api.connections(eventId));
@@ -176,7 +185,7 @@ export default function EventHome() {
     <Screen className="gap-8 pb-10">
       <section className="flex flex-col gap-4">
         <StatusPill icon={<Watch />}>
-          {bracelet ? `Bracelet ${bracelet} · Summary by email` : "No bracelet linked yet"}
+          {bracelet ? `Bracelet ${bracelet} · Summary by email` : "No bracelet linked. Ask staff at check-in."}
         </StatusPill>
         <DisplayTitle>{eventName}</DisplayTitle>
         <p className="text-body text-ink-body">

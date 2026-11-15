@@ -132,3 +132,23 @@ def test_oversized_picture_is_skipped(client, fake_linkedin):
     token = finish_login(client, start_login(client))["token"]
     me = client.get("/users/me", headers={"Authorization": f"Bearer {token}"}).json()
     assert me["profile"]["photo_url"] is None
+
+
+def test_linkedin_reclaims_account_made_without_linkedin(client, db):
+    """Someone who signed up by email (or had their email taken) gets that account back via a verified LinkedIn email."""
+    made = client.post("/users", json={"name": "Typed Name", "email": "tommy@usc.edu"}).json()
+    params = finish_login(client, start_login(client))
+    assert params["new_user"] == "0"
+    me = client.get("/users/me", headers={"Authorization": f"Bearer {params['token']}"}).json()
+    assert me["profile"]["id"] == made["me"]["profile"]["id"]
+    assert me["profile"]["email"] == "tommy@usc.edu"
+    assert len(db.exec(select(User)).all()) == 1
+
+
+def test_email_of_another_linkedin_account_is_not_claimed(client, db, fake_linkedin):
+    first = finish_login(client, start_login(client))
+    fake_linkedin.userinfo["sub"] = "someone-else"
+    second = finish_login(client, start_login(client))
+    me = client.get("/users/me", headers={"Authorization": f"Bearer {second['token']}"}).json()
+    assert second["new_user"] == "1" and me["profile"]["email"] is None
+    assert first["token"] != second["token"]

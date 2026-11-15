@@ -14,7 +14,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api, ApiError, tokenStore } from "../api";
 import { DisplayTitle, ErrorNote, IconBubble, Loading, PrimaryButton, Screen, StickyCta, YesNo } from "../components/ui";
 import { useEventContext } from "../hooks";
-import { draftStore } from "../session";
+import { braceletStore, draftStore } from "../session";
 
 function Question({
   icon,
@@ -82,7 +82,17 @@ export default function Preferences() {
         navigate(`/e/${eventId}/welcome`);
         return;
       }
-      if (braceletId && eventId) await api.claimBracelet(eventId, braceletId);
+      if (braceletId && eventId) {
+        try {
+          await api.claimBracelet(eventId, braceletId);
+        } catch (err) {
+          // Someone else already holds this bracelet (shared phone, swapped
+          // bracelet, bad link). Setup is still done; forget the id so the
+          // dashboard can say no bracelet is linked, and staff can fix it.
+          if (!(err instanceof ApiError && err.status === 409)) throw err;
+          braceletStore.clear(eventId);
+        }
+      }
       draftStore.set(null);
       navigate(`/e/${eventId}/tutorial`);
     } catch (err) {

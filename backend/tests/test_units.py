@@ -58,3 +58,32 @@ def test_tokens_expire(settings):
 
     expired = dataclasses.replace(settings, token_max_age=-1)
     assert read_token(expired, issue_token(settings, 1)) is None
+
+
+def test_old_database_gets_new_columns(tmp_path):
+    """A tro.db from an older version (missing columns) keeps working."""
+    import sqlite3
+
+    from sqlmodel import Session, select
+
+    from app.db import make_engine
+    from app.models import Preferences, User
+
+    path = tmp_path / "old.db"
+    engine = make_engine(f"sqlite:///{path}")
+    engine.dispose()
+    con = sqlite3.connect(path)
+    con.execute('ALTER TABLE "user" DROP COLUMN position')
+    con.execute("ALTER TABLE preferences DROP COLUMN recommendations_opt_in")
+    con.execute("ALTER TABLE connection DROP COLUMN recorded")
+    con.execute("INSERT INTO user (name, interests, created_at, updated_at) VALUES ('Old', '[]', '2026-01-01', '2026-01-01')")
+    con.commit()
+    con.close()
+
+    engine = make_engine(f"sqlite:///{path}")
+    with Session(engine) as s:
+        user = s.exec(select(User)).one()
+        assert user.position is None
+        s.exec(select(Preferences)).all()
+    cols = [r[1] for r in sqlite3.connect(path).execute("PRAGMA table_info(connection)")]
+    assert "recorded" in cols

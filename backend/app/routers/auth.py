@@ -135,11 +135,24 @@ def _upsert_user(session: Session, profile: linkedin.LinkedInProfile) -> tuple[U
         return user, False
 
     email = profile.email.lower() if profile.email else None
-    # Only claim the email if LinkedIn verified it and nobody else has it.
-    if email and (
-        not profile.email_verified or session.exec(select(User).where(User.email == email)).first()
-    ):
-        email = None
+    if email and profile.email_verified:
+        owner = session.exec(select(User).where(User.email == email)).first()
+        if owner is not None and owner.linkedin_sub is None:
+            # Someone signed up with this email without LinkedIn (POST /users).
+            # LinkedIn has verified this person owns the address, so this is
+            # their account: link it. That lets people who lost their login
+            # get back in, and stops an email typed by someone else from
+            # locking the real owner out.
+            owner.linkedin_sub = profile.sub
+            owner.updated_at = utcnow()
+            session.add(owner)
+            session.commit()
+            session.refresh(owner)
+            return owner, False
+        if owner is not None:
+            email = None  # belongs to a different LinkedIn account
+    else:
+        email = None  # never claim an unverified email
 
     user = User(linkedin_sub=profile.sub, name=profile.name, email=email, updated_at=utcnow())
     session.add(user)

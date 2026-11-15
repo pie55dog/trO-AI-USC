@@ -99,7 +99,16 @@ export default function Welcome() {
         setDraft((d) => mergeServer(d, me));
         setPhotoUrl(api.mediaUrl(me.profile.photo_url));
       })
-      .catch(() => setSignedIn(false)) // bad token was cleared; continue as new user
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          setSignedIn(false); // token expired and was cleared: continue as a new user
+        } else {
+          // Still signed in, just couldn't load (e.g. flaky Wi-Fi). Don't
+          // treat it as signed out, or Continue would create a second account.
+          setSignedIn(true);
+          setSubmitError(err instanceof ApiError ? err.message : "Couldn't load your profile.");
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -153,8 +162,10 @@ export default function Welcome() {
     const found = validate(draft);
     setErrors(found);
     if (Object.keys(found).length) {
-      // Bring the first problem into view.
-      document.querySelector("[aria-invalid='true']")?.scrollIntoView({ block: "center", behavior: "smooth" });
+      // Bring the first problem into view once React has rendered the errors.
+      requestAnimationFrame(() =>
+        document.querySelector("[aria-invalid='true']")?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      );
       return;
     }
     setSaving(true);

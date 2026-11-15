@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from fastapi import Request
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -34,7 +34,35 @@ def make_engine(database_url: str) -> Engine:
             cursor.close()
 
     SQLModel.metadata.create_all(engine)
+    if database_url.startswith("sqlite"):
+        add_missing_columns(engine)
     return engine
+
+
+def add_missing_columns(engine: Engine) -> None:
+    """Add columns that the models define but an existing database lacks.
+
+    ``create_all`` only creates missing *tables*, so a tro.db made by an
+    older version would crash on new columns. This hackathon-sized helper
+    adds them (SQLite ALTER TABLE ADD COLUMN) with their default, so old
+    rows stay valid. It never drops or changes anything.
+    """
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {column.type.compile(engine.dialect)}'
+                default = column.default.arg if column.default is not None and column.default.is_scalar else None
+                if isinstance(default, bool):
+                    ddl += f" NOT NULL DEFAULT {int(default)}"
+                elif isinstance(default, (int, float)):
+                    ddl += f" NOT NULL DEFAULT {default}"
+                elif isinstance(default, str):
+                    ddl += " NOT NULL DEFAULT '" + default.replace("'", "''") + "'"
+                conn.execute(text(ddl))
 
 
 def get_session(request: Request) -> Iterator[Session]:

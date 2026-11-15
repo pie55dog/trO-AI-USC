@@ -12,11 +12,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, select
 
 from . import mailer
 from .config import Settings
-from .models import BraceletAssignment, Connection, EmailLog, Event, Preferences, User, utcnow
+from .connections import connected_people, shared_contact
+from .models import BraceletAssignment, EmailLog, Event, Preferences, User, utcnow
 
 # How each shareable field is labelled in the email.
 FIELD_LABELS = {
@@ -42,33 +43,14 @@ class SendReport:
 
 def connection_entry(person: User, prefs: Preferences | None) -> mailer.ConnectionEntry:
     """How ``person`` appears in someone else's email."""
-    # No saved preferences = share nothing optional (safest default).
-    shared = prefs.shared_fields if prefs else []
-    contact = [
-        (FIELD_LABELS[f], value)
-        for f in FIELD_LABELS
-        if f in shared and (value := getattr(person, f, None))
-    ]
+    contact = [(FIELD_LABELS[f], value) for f, value in shared_contact(person, prefs).items()]
     headline = person.position or " · ".join(p for p in (person.major, person.school) if p) or None
     return mailer.ConnectionEntry(name=person.name, contact=contact, headline=headline)
 
 
 def connections_for(session: Session, event_id: int, user_id: int) -> list[mailer.ConnectionEntry]:
     """Everyone ``user_id`` connected with at the event, in tap order."""
-    rows = session.exec(
-        select(Connection)
-        .where(Connection.event_id == event_id)
-        .where(or_(Connection.user_a_id == user_id, Connection.user_b_id == user_id))
-        .order_by(Connection.tapped_at)
-    ).all()
-    entries = []
-    for row in rows:
-        other_id = row.user_b_id if row.user_a_id == user_id else row.user_a_id
-        other = session.get(User, other_id)
-        if other is None:  # account deleted since the event
-            continue
-        entries.append(connection_entry(other, session.get(Preferences, other_id)))
-    return entries
+    return [connection_entry(c.person, c.prefs) for c in connected_people(session, event_id, user_id)]
 
 
 def send_event_emails(
