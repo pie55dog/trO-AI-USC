@@ -21,6 +21,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from .. import linkedin, storage
@@ -142,6 +143,18 @@ def _upsert_user(session: Session, profile: linkedin.LinkedInProfile) -> tuple[U
 
     user = User(linkedin_sub=profile.sub, name=profile.name, email=email, updated_at=utcnow())
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Two callbacks for the same person raced (e.g. a double tap), or
+        # someone took the email in between. Use the winner's row, or retry
+        # once without the email.
+        session.rollback()
+        existing = session.exec(select(User).where(User.linkedin_sub == profile.sub)).first()
+        if existing is not None:
+            return existing, False
+        user = User(linkedin_sub=profile.sub, name=profile.name, email=None, updated_at=utcnow())
+        session.add(user)
+        session.commit()
     session.refresh(user)
     return user, True

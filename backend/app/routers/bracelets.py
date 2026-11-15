@@ -7,7 +7,8 @@ sends what it collected. The exact format belongs to the hardware team, so
 this endpoint is deliberately loose. It accepts a multipart form with:
 
     bracelet_id   required, the ESP32's id
-    event_id      optional; if missing we use the bracelet's latest assignment
+    event_id      optional, but required once a bracelet has been used at more
+                  than one event (we won't guess whose data it is)
     payload       optional JSON text (tap log, timestamps, anything)
     files         optional, zero or more files (conversation audio, voice notes)
 
@@ -38,8 +39,11 @@ MAX_FILES = 200
 _CHUNK = 1024 * 1024
 
 
+# A plain ``def`` (not async) so FastAPI runs it in a worker thread: the
+# disk writes and database calls below would otherwise block every other
+# request while a large upload is saved.
 @router.post("/uploads", response_model=BraceletUploadOut, status_code=status.HTTP_201_CREATED)
-async def receive_upload(
+def receive_upload(
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     bracelet_id: Annotated[str, Form()],
@@ -68,7 +72,16 @@ async def receive_upload(
     query = select(BraceletAssignment).where(BraceletAssignment.bracelet_id == bid)
     if event_id is not None:
         query = query.where(BraceletAssignment.event_id == event_id)
-    assignment = session.exec(query.order_by(BraceletAssignment.assigned_at.desc())).first()
+    matches = session.exec(query).all()
+    if len(matches) > 1:
+        # Bracelets are reused across events. Guessing "the latest" could tie
+        # one person's recorded audio to the next wearer, so make the sender
+        # say which event the data is from.
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "this bracelet has been used at more than one event; send event_id",
+        )
+    assignment = matches[0] if matches else None
 
     if assignment is not None:
         resolved_event = assignment.event_id
@@ -96,7 +109,7 @@ async def receive_upload(
             target = folder / name
             size = 0
             with target.open("wb") as out:
-                while chunk := await f.read(_CHUNK):
+                while chunk := f.file.read(_CHUNK):
                     size += len(chunk)
                     if size > MAX_FILE_BYTES:
                         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, f"{f.filename} is over 100 MB")
@@ -104,9 +117,7 @@ async def receive_upload(
             saved.append(target.relative_to(settings.media_dir).as_posix())
     except BaseException:
         # Don't leave half an upload behind: remove the files and the row.
-        for p in folder.iterdir():
-            p.unlink(missing_ok=True)
-        folder.rmdir()
+        storage.delete_upload_dir(settings.media_dir, upload.id)
         session.delete(upload)
         session.commit()
         raise

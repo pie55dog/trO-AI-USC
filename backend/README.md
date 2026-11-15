@@ -55,7 +55,7 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | organizer | `POST /events` | Create an event |
 | organizer | `POST /events/{id}/send-summaries` | Send every attendee their post-event email (re-runs skip people already emailed) |
 | organizer | `POST /admin/email/test` | Send a test email to check SMTP |
-| bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, optional `event_id`, `payload` (JSON text), `files` |
+| bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, `event_id` (required once a bracelet is reused), `payload` (JSON text), `files` |
 
 Auth: attendees send `Authorization: Bearer <token>` (from the sign-in
 redirect). Organizers send `X-Admin-Key`, bracelets send `X-Bracelet-Key`.

@@ -7,6 +7,7 @@ MEDIA_DIR so the folder can move between machines.
 from __future__ import annotations
 
 import secrets
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -78,6 +79,11 @@ def upload_dir(media_dir: Path, upload_id: int) -> Path:
     path = media_dir / "uploads" / str(upload_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def delete_upload_dir(media_dir: Path, upload_id: int) -> None:
+    """Remove one bracelet upload's folder and everything in it."""
+    shutil.rmtree(media_dir / "uploads" / str(int(upload_id)), ignore_errors=True)
 
 
 def safe_filename(name: Optional[str], fallback: str) -> str:

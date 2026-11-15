@@ -152,3 +152,31 @@ def test_empty_email_clears_it(client, make_user):
     me = client.patch("/users/me", json={"email": ""}, headers=headers).json()
     assert me["profile"]["email"] is None
     assert "email" in me["onboarding"]["missing"]
+
+
+def test_deleted_users_token_never_reaches_a_new_account(client, db, make_user):
+    """User ids aren't reused, so an old token can't sign in as someone new."""
+    from app.models import User
+
+    _, headers = make_user()
+    old_id, old_headers = make_user()  # the newest user: its id would be reused without AUTOINCREMENT
+    client.delete("/users/me", headers=old_headers)
+    newcomer = User(name="New Person", email="new@usc.edu")
+    db.add(newcomer)
+    db.commit()
+    assert newcomer.id != old_id
+    assert client.get("/users/me", headers=old_headers).status_code == 401
+
+
+def test_delete_account_removes_upload_folders(client, db, make_user, make_event, settings):
+    _, headers = make_user()
+    event_id = make_event()
+    client.post(f"/events/{event_id}/bracelet", json={"bracelet_id": "AA01"}, headers=headers)
+    client.post(
+        "/bracelets/uploads",
+        data={"bracelet_id": "AA01"},
+        files=[("files", ("a.wav", b"RIFF", "audio/wav"))],
+        headers=BRACELET,
+    )
+    client.delete("/users/me", headers=headers)
+    assert list((settings.media_dir / "uploads").iterdir()) == []

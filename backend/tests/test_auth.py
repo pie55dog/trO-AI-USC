@@ -123,3 +123,12 @@ def test_protected_endpoints_need_a_valid_token(client, settings):
     assert client.get("/users/me", headers={"Authorization": "Bearer garbage"}).status_code == 401
     # A well-signed token for a user that doesn't exist.
     assert client.get("/users/me", headers=auth_header(settings, 999)).status_code == 401
+
+
+def test_oversized_picture_is_skipped(client, fake_linkedin):
+    from app import linkedin
+
+    fake_linkedin.picture_bytes = JPEG_BYTES + b"\x00" * (linkedin.MAX_PICTURE_BYTES + 1)
+    token = finish_login(client, start_login(client))["token"]
+    me = client.get("/users/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert me["profile"]["photo_url"] is None

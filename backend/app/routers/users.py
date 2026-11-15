@@ -14,6 +14,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from .. import storage
@@ -127,7 +128,12 @@ def update_me(body: ProfileUpdate, user: CurrentUser, session: DB) -> MeOut:
         setattr(user, key, value)
     user.updated_at = utcnow()
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Another account took the email between our check and the commit.
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "that email is already used by another account") from None
     session.refresh(user)
     return me_out(session, user)
 
@@ -149,7 +155,7 @@ def save_preferences(body: PreferencesUpdate, user: CurrentUser, session: DB) ->
 
 
 @router.post("/users/me/photo", response_model=MeOut)
-async def upload_photo(
+def upload_photo(
     file: UploadFile,
     user: CurrentUser,
     session: DB,
@@ -157,7 +163,7 @@ async def upload_photo(
 ) -> MeOut:
     # Read one byte past the limit so we can tell "too big" without loading
     # an arbitrarily large file into memory.
-    data = await file.read(storage.MAX_PHOTO_BYTES + 1)
+    data = file.file.read(storage.MAX_PHOTO_BYTES + 1)
     try:
         new_path = storage.save_photo(settings.media_dir, user.id, data)
     except ValueError as exc:
@@ -182,9 +188,9 @@ def delete_me(
     Raw bracelet uploads from this user's bracelet are deleted too, because
     they can contain their recorded audio.
     """
+    upload_ids = []
     for upload in session.exec(select(BraceletUpload).where(BraceletUpload.user_id == user.id)).all():
-        for rel in upload.file_paths:
-            storage.delete_media(settings.media_dir, rel)
+        upload_ids.append(upload.id)
         session.delete(upload)
     for model, column in (
         (Connection, Connection.user_a_id),
@@ -198,7 +204,11 @@ def delete_me(
     photo = user.photo_path
     session.delete(user)
     session.commit()
+    # Remove files only after the database commit succeeded, so a failed
+    # delete never leaves rows pointing at missing files.
     storage.delete_media(settings.media_dir, photo)
+    for upload_id in upload_ids:
+        storage.delete_upload_dir(settings.media_dir, upload_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -32,6 +32,11 @@ SHAREABLE_FIELDS = ("email", "linkedin_url", "company", "website", "portfolio_ur
 
 
 class User(SQLModel, table=True):
+    # AUTOINCREMENT stops SQLite from reusing a deleted user's id. Login
+    # tokens carry only the id, so a reused id would let a deleted account's
+    # old token sign in as the new user.
+    __table_args__ = {"sqlite_autoincrement": True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # LinkedIn's stable per-app member id ("sub" claim). Unique per person.

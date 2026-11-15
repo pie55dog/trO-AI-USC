@@ -129,9 +129,15 @@ def download_picture(client: httpx.Client, url: str) -> Optional[bytes]:
     if parsed.scheme != "https" or not allowed:
         return None
     try:
-        resp = client.get(url, follow_redirects=False)
+        # Stream so an oversized response is cut off instead of fully buffered.
+        with client.stream("GET", url, follow_redirects=False) as resp:
+            if resp.status_code != 200:
+                return None
+            data = bytearray()
+            for chunk in resp.iter_bytes():
+                data += chunk
+                if len(data) > MAX_PICTURE_BYTES:
+                    return None
+            return bytes(data)
     except httpx.HTTPError:
         return None
-    if resp.status_code != 200 or len(resp.content) > MAX_PICTURE_BYTES:
-        return None
-    return resp.content

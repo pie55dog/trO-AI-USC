@@ -171,3 +171,15 @@ def test_oversized_upload_file_is_rejected_and_cleaned_up(client, db, settings, 
     assert resp.status_code == 413
     assert db.exec(select(BraceletUpload)).all() == []
     assert not any((settings.media_dir / "uploads").iterdir())
+
+
+def test_reused_bracelet_upload_must_name_its_event(client, make_user, make_event):
+    """Guessing the event could tie Alice's audio to Bob, so we refuse to guess."""
+    _, alice = make_user(name="Alice")
+    _, bob = make_user(name="Bob")
+    e1, e2 = make_event("Night 1"), make_event("Night 2")
+    client.post(f"/events/{e1}/bracelet", json={"bracelet_id": "AA01"}, headers=alice)
+    client.post(f"/events/{e2}/bracelet", json={"bracelet_id": "AA01"}, headers=bob)
+    resp = client.post("/bracelets/uploads", data={"bracelet_id": "AA01"}, headers=BRACELET)
+    assert resp.status_code == 422
+    assert "event_id" in resp.json()["detail"]
