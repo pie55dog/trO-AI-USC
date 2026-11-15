@@ -74,7 +74,8 @@ describe("helpers", () => {
       bio: "one two three four five", interests: ["AI & ML"],
     });
     expect(ok).toEqual({});
-    expect(validate({ ...emptyDraft, bio: "too short" }).bio).toBeDefined();
+    expect(validate({ ...emptyDraft, bio: "Short." }).bio).toBeUndefined();
+    expect(validate({ ...emptyDraft, bio: "  " }).bio).toBeDefined();
     expect(validate({ ...emptyDraft, bio: Array(21).fill("w").join(" ") }).bio).toBeDefined();
   });
 });

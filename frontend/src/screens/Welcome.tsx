@@ -31,7 +31,6 @@ import { useEventContext, wordCount } from "../hooks";
 import { draftStore, emptyDraft, returnStore, type ProfileDraft } from "../session";
 
 export const INTEREST_OPTIONS = ["AI & ML", "Startups", "Design", "Finance", "Research", "Consulting"];
-const BIO_MIN = 5;
 const BIO_MAX = 20;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,7 +44,8 @@ export function validate(d: ProfileDraft): Errors {
   if (!d.school.trim()) e.school = "Add your school.";
   if (!d.major.trim()) e.major = "Add your major.";
   const words = wordCount(d.bio);
-  if (words < BIO_MIN || words > BIO_MAX) e.bio = `Keep it between ${BIO_MIN} and ${BIO_MAX} words.`;
+  if (words === 0) e.bio = "Add a short bio.";
+  else if (words > BIO_MAX) e.bio = `Keep it to ${BIO_MAX} words or fewer.`;
   if (d.interests.length === 0) e.interests = "Pick at least one.";
   return e;
 }
@@ -285,7 +285,7 @@ export default function Welcome() {
           </div>
           <Field
             multiline
-            label={`Bio · ${BIO_MIN}–${BIO_MAX} words`}
+            label={`Bio · up to ${BIO_MAX} words`}
             placeholder="Junior building tools for student orgs. Into AI and hackathons."
             value={draft.bio}
             onChange={(e) => set("bio", e.target.value)}
