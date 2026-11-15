@@ -9,7 +9,8 @@
  */
 
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { PREVIEW } from "./api";
 import { Screen } from "./components/ui";
 import AuthCallback from "./screens/AuthCallback";
 import EventHome from "./screens/EventHome";
@@ -25,6 +26,18 @@ function Home() {
     <Screen className="justify-center gap-2 text-center">
       <h1 className="text-title font-semibold">Tap your bracelet to start</h1>
       <p className="text-body text-ink-muted">Hold your trO bracelet to your phone to open your event.</p>
+      {PREVIEW && (
+        // Preview builds (no backend) have no bracelets to tap, so offer a way in.
+        <div className="mt-6 flex flex-col gap-2">
+          <Link
+            to="/e/1"
+            className="flex items-center justify-center rounded-[14px] border border-tint bg-tint px-5 py-3.5 text-body font-semibold text-ink"
+          >
+            Try it without a bracelet
+          </Link>
+          <p className="text-caption text-ink-muted">Preview: what you enter stays on this phone.</p>
+        </div>
+      )}
     </Screen>
   );
 }

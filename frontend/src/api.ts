@@ -6,7 +6,17 @@
  * screens can show it directly.
  */
 
-export const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+import { previewApi } from "./preview";
+
+const CONFIGURED_API = import.meta.env.VITE_API_URL ?? "";
+
+/**
+ * A production build with no API configured (e.g. GitHub Pages before a
+ * backend is hosted) runs in preview mode: see preview.ts.
+ */
+export const PREVIEW = import.meta.env.PROD && !CONFIGURED_API;
+
+export const API_URL = (CONFIGURED_API || "http://localhost:8000").replace(/\/$/, "");
 
 // --- Types (mirror backend/app/schemas.py) ---------------------------------
 
@@ -153,11 +163,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
-export const api = {
+const serverApi = {
   /** Full-page redirect target that starts LinkedIn sign-in. */
   linkedinLoginUrl: () => `${API_URL}/auth/linkedin/login`,
-  /** Absolute URL for a photo path returned by the API. */
-  mediaUrl: (path: string | null) => (path ? `${API_URL}${path}` : null),
+  /** Absolute URL for a photo path returned by the API (preview mode stores data: URLs). */
+  mediaUrl: (path: string | null) => (path ? (path.startsWith("data:") ? path : `${API_URL}${path}`) : null),
 
   signUp: (name: string, email: string) =>
     request<{ token: string; me: Me }>("/users", { method: "POST", body: JSON.stringify({ name, email }) }),
@@ -185,3 +195,5 @@ export const api = {
   myBracelet: (eventId: number) => request<BraceletAssignment>(`/events/${eventId}/bracelet`),
   connections: (eventId: number) => request<Connection[]>(`/events/${eventId}/connections`),
 };
+
+export const api: typeof serverApi = PREVIEW ? { ...serverApi, ...previewApi } : serverApi;

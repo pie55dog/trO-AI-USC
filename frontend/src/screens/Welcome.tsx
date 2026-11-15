@@ -13,7 +13,7 @@
 import { Camera, Mail, Plus, Watch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api, ApiError, tokenStore, type Me } from "../api";
+import { api, ApiError, PREVIEW, tokenStore, type Me } from "../api";
 import {
   Chip,
   DisplayTitle,
@@ -383,7 +383,8 @@ export default function Welcome() {
               <SecondaryButton type="button" onClick={() => fileInput.current?.click()}>
                 {shownPhoto ? "Change photo" : "Upload photo"}
               </SecondaryButton>
-              {!signedIn && (
+              {/* LinkedIn sign-in needs the backend, so preview mode hides it. */}
+              {!signedIn && !PREVIEW && (
                 <SecondaryButton type="button" onClick={pullFromLinkedIn}>
                   Pull from LinkedIn
                 </SecondaryButton>
