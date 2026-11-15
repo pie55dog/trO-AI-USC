@@ -56,7 +56,10 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | attendee | `DELETE /users/me` | Delete account, photo, and any bracelet audio |
 | attendee | `POST /events/{id}/bracelet` | Claim a bracelet by its ESP32 id (needs onboarding complete) |
 | attendee | `GET /events/{id}/bracelet` | Which bracelet I have |
-| attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only, `notes` preview) |
+| attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only, `notes` preview, `connection_id`, `both_consented`) |
+| attendee | `POST /events/{id}/recordings` | Phone mic (until bracelets have mics): one 16 kHz WAV clip as the raw body (`?kind=conversation\|voice_note&connection_id&started_at`). Same consent check and AI pipeline as bracelet clips. WAV only, ≤200 s (conversation) / 40 s (voice note), 3 clips per conversation, 12 uploads a minute per person |
+| attendee | `POST /events/{id}/watch-code` | One-time 6-digit code (5 min) to sign the Apple Watch app in |
+| watch | `POST /auth/watch` | `{"code"}` → login token, event id/name. 401 for any wrong/used/expired code; 10 tries a minute per address |
 | attendee | `GET /events/{id}/notes` | All my notes for the event: per person, plus voice notes sorted as ideas / to-dos |
 | attendee | `GET /events/{id}/notes/{user_id}` | My notes on one person: AI summary, promises, follow-ups, my voice notes, who-said-what transcript |
 | attendee | `PATCH /events/{id}/voice-notes/{note_id}` | Move a voice note to another person (`person_user_id`) or category (`idea`/`task`/`other`) |
@@ -104,7 +107,7 @@ each person chose to share. Every send is logged so nobody gets duplicates.
 
 ## Conversation notes (the AI)
 
-Bracelet audio becomes notes in `app/recordings.py`:
+Bracelet audio (or phone mic audio, see below) becomes notes in `app/recordings.py`:
 
 1. **Consent.** A conversation clip is only accepted if *both* people currently say yes to
    recording (checked again on upload, so turning it off mid-event works). Otherwise 403 and
@@ -122,6 +125,17 @@ Bracelet audio becomes notes in `app/recordings.py`:
    name beats the model's guess; the model can only pick people you actually tapped.
 6. **Privacy.** Audio is deleted right after it's transcribed and measured. Transcripts and loudness
    data are deleted once the summary emails go out. The notes stay.
+7. **Prompt injection.** Transcripts and profile text are flattened and fenced before they reach the
+   model, answers are parsed only as JSON into capped fields, and links or emails the model writes
+   are dropped unless someone actually said them. See [`../SECURITY.md`](../SECURITY.md).
+
+**Phone mic.** Until the bracelets have mics, the attendee's phone records instead
+(`frontend/src/screens/PhoneMic.tsx`). The bracelet still does the tap; the phone polls
+`/events/{id}/connections`, and when a new connection appears with `both_consented`, it records
+(with a few seconds of pre-roll) until the next tap, *End conversation*, or 3 minutes, then uploads
+a 16 kHz WAV to `POST /events/{id}/recordings`. Clips are stored with `bracelet_id = "PHONE"` and go
+through the exact same consent check, transcription, who-said-what and notes. Two phones, or one
+phone and one mic bracelet, work together the same way two bracelets do.
 
 Set `AI_API_KEY` to a free Groq key (console.groq.com, no card). Without it, recordings are stored
 with status `waiting_for_ai` and processed later by `POST /admin/process` (also run automatically

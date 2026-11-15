@@ -162,6 +162,13 @@ export const previewApi = {
   personNotes: (_eventId: number, _userId: number): Promise<PersonNotes> =>
     Promise.reject(new ApiError(404, "Notes need the trO server. This preview has none.")),
 
+  // Recordings are transcribed on the server.
+  uploadRecording: (): Promise<never> =>
+    Promise.reject(new ApiError(503, "Recording needs the trO server. This preview has none.")),
+
+  watchCode: (): Promise<never> =>
+    Promise.reject(new ApiError(503, "Pairing a watch needs the trO server. This preview has none.")),
+
   // Sending email needs the real server (scripts/local-server.sh).
   testEmail: (_eventId: number): Promise<{ sent_to: string; delivered: boolean }> =>
     Promise.reject(new ApiError(503, "Sending email needs the trO server. This preview has none.")),

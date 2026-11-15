@@ -339,3 +339,20 @@ class VoiceNote(SQLModel, table=True):
     # context), "user" (moved by hand in the app) or "" (not about a person).
     matched_by: str = ""
     recorded_at: datetime = Field(default_factory=utcnow)
+
+
+class WatchPairing(SQLModel, table=True):
+    """A short-lived code that signs the trO Apple Watch app in (watch/README.md).
+
+    The attendee asks for a code on their phone (signed in), then types its
+    6 digits on the watch. Only a salted hash is stored; a code works once,
+    for a few minutes, and asking for a new one cancels the old one.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code_hash: str = Field(index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    event_id: int = Field(foreign_key="event.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime
+    used_at: Optional[datetime] = None

@@ -85,6 +85,14 @@ def settings(tmp_path: Path) -> Settings:
     )
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    from app import ratelimit
+
+    ratelimit.reset_all()
+    yield
+
+
 @pytest.fixture
 def fake_linkedin() -> FakeLinkedIn:
     return FakeLinkedIn()

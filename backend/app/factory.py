@@ -5,17 +5,18 @@ tests do) doesn't create the default database file as a side effect.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import ai
 from .config import Settings, load_settings
 from .db import make_engine
-from .routers import admin, auth, bracelets, events, notes, organizer, users
+from .routers import admin, auth, bracelets, events, notes, organizer, users, watch
 
 
 def create_app(
@@ -31,7 +32,11 @@ def create_app(
     """
     settings = settings or load_settings()
     logging.basicConfig(level=logging.INFO)
-    if settings.secret_key == "dev-only-change-me":
+    if settings.secret_key in ("", "dev-only-change-me"):
+        # Anyone who knows the key can sign login tokens for any account, so a
+        # deployed server must never run with the public default.
+        if os.environ.get("RENDER") or not settings.database_url.startswith("sqlite"):
+            raise RuntimeError("SECRET_KEY must be set to a long random value on a deployed server")
         logging.getLogger("tro").warning("SECRET_KEY is the dev default; set a real one before deploying")
 
     app = FastAPI(title="Tro API", version="0.1.0")
@@ -49,7 +54,20 @@ def create_app(
         allow_headers=["*"],
     )
 
-    for module in (auth, users, events, notes, organizer, bracelets, admin):
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        # An API that returns JSON and photos: nothing should frame it, sniff it, or leak its URLs.
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        if not request.url.path.startswith(("/docs", "/redoc")):  # the API docs page loads its own scripts
+            response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        if request.url.scheme == "https":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return response
+
+    for module in (auth, users, events, notes, organizer, bracelets, admin, watch):
         app.include_router(module.router)
 
     @app.get("/health", tags=["meta"])

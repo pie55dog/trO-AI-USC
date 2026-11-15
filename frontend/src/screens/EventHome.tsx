@@ -65,6 +65,7 @@ function ReachAt({
   children: ReactNode;
 }) {
   const cls = "flex min-h-10 items-center gap-1.5 rounded-full bg-white/20 py-3 pr-3.5 pl-3 text-label-s font-semibold text-highlight";
+  href = safeHref(href);
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
       {icon}
@@ -78,9 +79,16 @@ function ReachAt({
   );
 }
 
+/** Only ever link to web pages: never javascript:, data: or other schemes from someone's profile. */
+export function safeHref(value: string | undefined): string | undefined {
+  return value && /^https?:\/\//i.test(value.trim()) ? value.trim() : undefined;
+}
+
 /** "@handle" or a URL -> a link to the Instagram profile. */
-function instagramUrl(value: string) {
-  return value.startsWith("http") ? value : `https://instagram.com/${value.replace(/^@/, "")}`;
+export function instagramUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+    ? safeHref(value)
+    : `https://instagram.com/${encodeURIComponent(value.replace(/^@/, "").trim())}`;
 }
 
 /** The caption under "Conversation notes", e.g. "AI summary · 1 voice note · follow-up idea" (Figma). */
@@ -266,10 +274,17 @@ export default function EventHome() {
           You’re using trO to keep your connections with the Trojan family. Everyone you tap shows up here, and you’ll get
           the same list by email with ways to follow up and any notes you took.
         </p>
-        <Link to={`/e/${eventId}/tutorial`} className={buttonClass("primary", "self-start")}>
-          <Icon icon={Play} />
-          Tutorial
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/e/${eventId}/tutorial`} className={buttonClass("primary")}>
+            <Icon icon={Play} />
+            Tutorial
+          </Link>
+          {/* Until the bracelets have mics, the phone records (screens/PhoneMic.tsx). */}
+          <Link to={`/e/${eventId}/mic`} className={buttonClass("soft")}>
+            <Icon icon={Mic} />
+            Phone mic
+          </Link>
+        </div>
       </section>
 
       <section className="flex flex-col gap-4">

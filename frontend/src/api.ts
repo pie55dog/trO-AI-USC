@@ -68,6 +68,8 @@ export interface BraceletAssignment {
 
 export interface Connection {
   user_id: number;
+  /** The tap. The phone mic uploads its clip against this. Older servers leave it out. */
+  connection_id?: number;
   name: string;
   position: string | null;
   school: string | null;
@@ -75,6 +77,8 @@ export interface Connection {
   bio: string | null;
   photo_url: string | null;
   recorded: boolean;
+  /** Both people currently say yes to recording (the phone mic only records then). */
+  both_consented?: boolean;
   // Starred from the bracelet (short button press).
   starred?: boolean;
   contact: Partial<Record<ShareableField, string>>;
@@ -139,6 +143,14 @@ export interface EventNotes {
   people: PersonNotes[];
   other: VoiceNote[];
   voice_notes_processing: number;
+}
+
+export interface RecordingResult {
+  id: number;
+  kind: string;
+  status: string;
+  connection_id: number | null;
+  duration_s: number | null;
 }
 
 export type ProfileUpdate = Partial<Omit<Profile, "id" | "photo_url">>;
@@ -234,7 +246,8 @@ export async function request<T>(path: string, init: RequestInit = {}, auth: "us
     const token = tokenStore.get();
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  // JSON bodies are strings; FormData and audio Blobs set their own type.
+  if (typeof init.body === "string" && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
 
   let resp: Response;
   try {
@@ -287,6 +300,27 @@ const serverApi = {
   notes: (eventId: number) => request<EventNotes>(`/events/${eventId}/notes`),
   /** One person they met: AI summary, promises, follow-ups, their voice notes. */
   personNotes: (eventId: number, userId: number) => request<PersonNotes>(`/events/${eventId}/notes/${userId}`),
+  /**
+   * One clip from the phone mic (screens/PhoneMic.tsx): raw 16 kHz WAV.
+   * `startedAt` is Unix ms from the phone's clock. 403 = one of you said no to recording.
+   */
+  uploadRecording: (
+    eventId: number,
+    wav: Blob,
+    params: { kind: "conversation" | "voice_note"; connectionId?: number; startedAt?: number },
+  ) => {
+    const q = new URLSearchParams({ kind: params.kind });
+    if (params.connectionId !== undefined) q.set("connection_id", String(params.connectionId));
+    if (params.startedAt !== undefined) q.set("started_at", String(Math.round(params.startedAt)));
+    return request<RecordingResult>(`/events/${eventId}/recordings?${q}`, {
+      method: "POST",
+      body: wav,
+      headers: { "Content-Type": "audio/wav" },
+    });
+  },
+  /** A one-time 6-digit code that signs the trO Apple Watch app in (5 minutes, single use). */
+  watchCode: (eventId: number) =>
+    request<{ code: string; expires_at: string }>(`/events/${eventId}/watch-code`, { method: "POST" }),
   /** Email the signed-in person their summary for this event right now. */
   testEmail: (eventId: number) => request<{ sent_to: string; delivered: boolean }>(`/events/${eventId}/test-email`, { method: "POST" }),
 };
