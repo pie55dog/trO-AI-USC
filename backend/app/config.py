@@ -1,0 +1,74 @@
+"""Runtime settings for the Tro backend.
+
+Every value comes from an environment variable so the same code runs on a
+laptop, in tests, and on the demo server. See ``.env.example`` for the full
+list. Nothing secret is hardcoded here: the defaults are only safe for local
+development.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+def _env(name: str, default: str = "") -> str:
+    """Read an environment variable, treating blank values as unset."""
+    value = os.environ.get(name, "").strip()
+    return value or default
+
+
+@dataclass(frozen=True)
+class Settings:
+    # --- Core -----------------------------------------------------------
+    # SQLite keeps the hackathon setup to one file; any SQLAlchemy URL works.
+    database_url: str = field(default_factory=lambda: _env("DATABASE_URL", "sqlite:///./tro.db"))
+    # Signs login tokens and the OAuth state cookie. MUST be changed in prod.
+    secret_key: str = field(default_factory=lambda: _env("SECRET_KEY", "dev-only-change-me"))
+    # How long a login token stays valid, in seconds (default: 30 days).
+    token_max_age: int = field(default_factory=lambda: int(_env("TOKEN_MAX_AGE", str(60 * 60 * 24 * 30))))
+    # Where profile photos and raw bracelet uploads are stored on disk.
+    media_dir: Path = field(default_factory=lambda: Path(_env("MEDIA_DIR", "./media")))
+    # The mobile web app. After LinkedIn sign-in we redirect back here.
+    frontend_url: str = field(default_factory=lambda: _env("FRONTEND_URL", "http://localhost:5173"))
+    # Comma-separated origins allowed to call the API from a browser.
+    cors_origins: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            o.strip() for o in _env("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
+        )
+    )
+
+    # --- LinkedIn (official "Sign In with LinkedIn using OpenID Connect") --
+    linkedin_client_id: str = field(default_factory=lambda: _env("LINKEDIN_CLIENT_ID"))
+    linkedin_client_secret: str = field(default_factory=lambda: _env("LINKEDIN_CLIENT_SECRET"))
+    # Must exactly match a redirect URL registered in the LinkedIn developer portal.
+    linkedin_redirect_uri: str = field(
+        default_factory=lambda: _env("LINKEDIN_REDIRECT_URI", "http://localhost:8000/auth/linkedin/callback")
+    )
+
+    # --- Shared secrets for non-user callers -----------------------------
+    # Organizers use this to trigger post-event emails (header X-Admin-Key).
+    admin_api_key: str = field(default_factory=lambda: _env("ADMIN_API_KEY"))
+    # Bracelets (or the hotspot relay) send this with uploads (header X-Bracelet-Key).
+    bracelet_api_key: str = field(default_factory=lambda: _env("BRACELET_API_KEY"))
+
+    # --- Email -----------------------------------------------------------
+    # "console" writes emails to MEDIA_DIR/outbox for local dev; "smtp" really sends.
+    email_backend: str = field(default_factory=lambda: _env("EMAIL_BACKEND", "console"))
+    email_from: str = field(default_factory=lambda: _env("EMAIL_FROM", "Tro <no-reply@tro.local>"))
+    smtp_host: str = field(default_factory=lambda: _env("SMTP_HOST"))
+    smtp_port: int = field(default_factory=lambda: int(_env("SMTP_PORT", "587")))
+    smtp_username: str = field(default_factory=lambda: _env("SMTP_USERNAME"))
+    smtp_password: str = field(default_factory=lambda: _env("SMTP_PASSWORD"))
+    # True = STARTTLS on port 587 (Gmail, Outlook). Port 465 always uses implicit TLS.
+    smtp_starttls: bool = field(default_factory=lambda: _env("SMTP_STARTTLS", "true").lower() == "true")
+
+    @property
+    def linkedin_configured(self) -> bool:
+        return bool(self.linkedin_client_id and self.linkedin_client_secret)
+
+
+def load_settings() -> Settings:
+    """Build settings from the current environment variables."""
+    return Settings()
