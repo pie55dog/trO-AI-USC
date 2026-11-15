@@ -1,5 +1,5 @@
 // =====================================================================
-// trO bracelet firmware: Seeed XIAO ESP32-S3, no-mic build
+// trO bracelet firmware: Seeed XIAO ESP32-S3 (mic optional: MIC_ENABLED in config.h)
 //
 // Every bracelet runs this exact sketch (each names itself from its chip
 // id). Arduino IDE: board "XIAO_ESP32S3", esp32 core 3.x by Espressif.
@@ -18,6 +18,14 @@
 // and in the email); hold 1 s = manual tap, for when the radio tap doesn't
 // trigger (both people hold their buttons at the same time).
 //
+// Mic build (MIC_ENABLED 1):
+//   * After a tap where BOTH people agreed to recording, the bracelet records
+//     the conversation (LED3 blinks so everyone can see). It stops when you
+//     click the button, walk apart, tap someone else, or after 3 minutes, then
+//     uploads it in the background to POST /bracelets/recordings.
+//   * Double-click = record a voice note (LED3 solid), click again to stop.
+//     trO sorts it to the right person or idea after the event.
+//
 // LEDs (LED1 = D10, LED2 = D9, LED3 = D8):
 //   LED1 breathing ............ ready
 //   1-2-3 swipe every 2 s ..... nobody has claimed this bracelet yet: tap a phone to its NFC sticker
@@ -28,6 +36,8 @@
 //   all flash once ............ starred
 //   LED3 blinks 3x ............ not linked yet (claim it with your phone first)
 //   all flash 3x .............. pairing failed, try again
+//   LED3 blinking ............. recording this conversation (mic build)
+//   LED3 solid ................ recording a voice note (mic build)
 // =====================================================================
 
 #include <ArduinoJson.h>
@@ -38,6 +48,9 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 
+#include <time.h>
+
+#include "Recorder.h"
 #include "TapDetector.h"
 #include "config.h"
 
@@ -79,6 +92,10 @@ static uint32_t nextStatusAt = 0;
 static WiFiClientSecure tlsClient;
 static WiFiClient plainClient;
 
+#if MIC_ENABLED
+static void startConversation(int connectionId, const char* peer);  // defined in the microphone section
+#endif
+
 static const uint8_t LED_PINS[3] = {PIN_LED1, PIN_LED2, PIN_LED3};
 
 // ================= LEDs (3 discrete LEDs, PWM) =================
@@ -108,6 +125,12 @@ static void ledsNoWifi() {  // LED2 fast blink
 }
 
 static void ledsConnecting() { ledsSet(0, LED_ON, 0); }
+
+static void ledsRecording() {  // the "trO is taking notes" light: LED3 blinking
+  ledsSet(0, 0, (millis() % 1000) < 500 ? LED_ON : 0);
+}
+
+static void ledsVoiceNote() { ledsSet(0, 0, LED_ON); }
 
 static void ledsPairSweep() {  // back-and-forth chase, 3 passes
   const uint8_t order[4] = {0, 1, 2, 1};
@@ -308,6 +331,10 @@ static void tryPair(const char* peer) {
         ledsMatchBar(pct);
       }
       if (peer[0]) detector.setCooldown(peer, millis(), PAIR_COOLDOWN_MS);
+#if MIC_ENABLED
+      // Record only if BOTH people said yes at sign-up (the server checks again on upload).
+      if (resp["both_consented"].as<bool>()) startConversation(resp["connection_id"] | 0, peer);
+#endif
       return;
     }
     if (code == 409) {  // nobody has claimed this bracelet yet
@@ -347,6 +374,113 @@ static void starLatest() {
   }
 }
 
+// ================= microphone (MIC_ENABLED) =================
+#if MIC_ENABLED
+static Recorder recorder;
+static QueueHandle_t uploadQueue;
+static char convoPeer[TRO_ID_LEN];  // bracelet we're recording with ("" = manual tap)
+
+// Unix time in ms from NTP, or 0 if the clock isn't set yet. Lets the
+// server line up the two bracelets' recordings of the same conversation.
+static int64_t nowUnixMs() {
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  if (tv.tv_sec < 1600000000) return 0;
+  return (int64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
+static void finishClip(const char* why) {
+  Clip* c = recorder.stop();
+  if (!c) return;
+  Serial.printf("Recording stopped (%s): %s, %u s\n", why, c->conversation ? "conversation" : "voice note",
+                (unsigned)((c->bytes - WAV_HEADER) / (MIC_RATE * 2)));
+  if (c->bytes <= WAV_HEADER + MIC_RATE) {  // under half a second: nothing worth sending
+    clipFree(c);
+    return;
+  }
+  if (xQueueSend(uploadQueue, &c, 0) != pdTRUE) {
+    Serial.println("Upload queue full, dropping clip");
+    clipFree(c);
+  }
+}
+
+static void startConversation(int connectionId, const char* peer) {
+  if (recorder.active()) finishClip("new conversation");
+  if (recorder.start(true, connectionId, MAX_CONVERSATION_S, nowUnixMs())) {
+    strncpy(convoPeer, peer, sizeof(convoPeer) - 1);
+    convoPeer[sizeof(convoPeer) - 1] = '\0';
+    Serial.printf("Recording conversation %d (both people agreed)\n", connectionId);
+  }
+}
+
+static void startVoiceNote() {
+  if (recorder.active()) return;
+  if (recorder.start(false, 0, MAX_VOICE_NOTE_S, nowUnixMs())) Serial.println("Recording a voice note: click to stop");
+}
+
+// Runs on its own task so a slow upload never blocks taps.
+static void uploadTask(void*) {
+  WiFiClientSecure tls;
+  WiFiClient plain;
+  tls.setInsecure();
+  for (;;) {
+    Clip* c = nullptr;
+    if (xQueueReceive(uploadQueue, &c, portMAX_DELAY) != pdTRUE || !c) continue;
+    String url = String(SERVER_URL) + "/bracelets/recordings?device=" + deviceId +
+                 "&kind=" + (c->conversation ? "conversation" : "voice_note");
+    if (c->conversation) url += "&connection_id=" + String(c->connectionId);
+    if (c->startedAtMs) url += "&started_at=" + String((long long)c->startedAtMs);
+    if (eventId > 0) url += "&event_id=" + String(eventId);
+    for (int attempt = 0; attempt < 5; attempt++) {
+      if (WiFi.status() != WL_CONNECTED) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        continue;
+      }
+      HTTPClient http;
+      http.setConnectTimeout(UPLOAD_TIMEOUT_MS);
+      http.setTimeout(UPLOAD_TIMEOUT_MS);
+      bool ok = useTls() ? http.begin(tls, url) : http.begin(plain, url);
+      if (!ok) break;
+      http.addHeader("X-Bracelet-Key", BRACELET_KEY);
+      http.addHeader("Content-Type", "audio/wav");
+      int code = http.sendRequest("POST", c->buf, c->bytes);
+      String body = code > 0 ? http.getString() : String();
+      http.end();
+      if (code == 201) {
+        Serial.printf("Uploaded %u KB: %s\n", (unsigned)(c->bytes / 1024), body.c_str());
+        break;
+      }
+      // 403: someone turned recording off, so the server refused it (and kept nothing).
+      if (code == 403 || code == 409 || code == 413 || code == 422 || code == 401) {
+        Serial.printf("Upload refused (%d): %s\n", code, body.c_str());
+        break;
+      }
+      Serial.printf("Upload failed (%d), retrying\n", code);
+      vTaskDelay(pdMS_TO_TICKS(5000 * (attempt + 1)));
+    }
+    clipFree(c);  // sent or given up: either way the audio leaves the bracelet
+  }
+}
+
+static void micSetup() {
+  uploadQueue = xQueueCreate(4, sizeof(Clip*));
+  configTime(0, 0, "pool.ntp.org", "time.google.com");  // UTC; only used to line up two clips
+  if (recorder.begin()) xTaskCreatePinnedToCore(uploadTask, "upload", 8192, nullptr, 1, nullptr, 0);
+}
+
+// Called every loop: end the recording when it's full or the two people walked apart.
+static void micTick() {
+  if (!recorder.active()) return;
+  if (recorder.full()) {
+    finishClip("max length");
+    return;
+  }
+  if (recorder.isConversation() && convoPeer[0] && detector.msSinceHeard(convoPeer, millis()) > WALK_AWAY_MS) {
+    finishClip("walked apart");
+  }
+}
+#endif
+
 // After anything slow, throw away beacons that piled up meanwhile and any
 // half-finished holds, so old readings can't trigger a tap.
 static void afterBusy() {
@@ -357,6 +491,19 @@ static void afterBusy() {
 // ================= button =================
 static bool btnRaw = false, btnDown = false, btnHoldFired = false;
 static uint32_t btnRawAt = 0, btnDownAt = 0;
+static uint32_t pendingClickAt = 0;  // a click waiting to see if it's a double-click
+
+// One click, after the double-click window: stop a recording, or star.
+static void onClick() {
+#if MIC_ENABLED
+  if (recorder.active()) {
+    finishClip("button");
+    return;
+  }
+#endif
+  starLatest();
+  afterBusy();
+}
 
 static void pumpButton() {
   uint32_t now = millis();
@@ -371,9 +518,23 @@ static void pumpButton() {
       btnDownAt = now;
       btnHoldFired = false;
     } else if (!btnHoldFired) {
-      starLatest();  // short click
-      afterBusy();
+#if MIC_ENABLED
+      if (recorder.active()) {
+        finishClip("button");  // stopping should feel instant: no double-click wait
+      } else if (pendingClickAt && now - pendingClickAt <= DOUBLE_CLICK_MS) {
+        pendingClickAt = 0;
+        startVoiceNote();  // double-click
+      } else {
+        pendingClickAt = now ? now : 1;
+      }
+#else
+      onClick();  // short click
+#endif
     }
+  }
+  if (pendingClickAt && now - pendingClickAt > DOUBLE_CLICK_MS) {
+    pendingClickAt = 0;
+    onClick();
   }
   if (btnDown && !btnHoldFired && now - btnDownAt >= HOLD_PRESS_MS) {
     btnHoldFired = true;  // fires while still held, so it feels instant
@@ -432,6 +593,9 @@ void setup() {
   if (useTls()) tlsClient.setInsecure();  // fine for a demo; see README to pin Render's CA
   espNowSetup();
   xTaskCreate(beaconTask, "beacon", 3072, nullptr, 2, nullptr);
+#if MIC_ENABLED
+  micSetup();
+#endif
 
   wakeServer();
   checkStatus();
@@ -447,6 +611,9 @@ void loop() {
   char peer[TRO_ID_LEN];
   while (xQueueReceive(rxQueue, &s, 0) == pdTRUE) {
     if (detector.onBeacon(s.id, s.rssi, s.at, peer)) {
+#if MIC_ENABLED
+      if (recorder.isConversation()) finishClip("tapped someone else");
+#endif
       tryPair(peer);
       afterBusy();
       break;
@@ -455,10 +622,16 @@ void loop() {
   detector.tick(now);
 
   pumpButton();
+#if MIC_ENABLED
+  micTick();
+#endif
 
   if ((int32_t)(millis() - nextStatusAt) >= 0) checkStatus();
 
   if (WiFi.status() != WL_CONNECTED) ledsNoWifi();
+#if MIC_ENABLED
+  else if (recorder.active()) recorder.isConversation() ? ledsRecording() : ledsVoiceNote();
+#endif
   else if (!serverReachable) ledsNoServer();
   else if (linkState == LINK_NO) ledsUnlinked();
   else ledsBreathe();

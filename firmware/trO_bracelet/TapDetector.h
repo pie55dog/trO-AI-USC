@@ -148,6 +148,14 @@ class TapDetector {
     return -127;
   }
 
+  // Milliseconds since we last heard this peer, or UINT32_MAX if never.
+  // Used to notice two people walking apart after a conversation.
+  uint32_t msSinceHeard(const char* id, uint32_t now) const {
+    for (auto& p : peers_)
+      if (p.used && p.heard && strncmp(p.id, id, TRO_ID_LEN) == 0) return now - p.lastSeen;
+    return UINT32_MAX;
+  }
+
   int count(uint32_t now) const {
     int n = 0;
     for (auto& p : peers_)
