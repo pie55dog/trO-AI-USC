@@ -16,7 +16,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import Session, col, or_, select
 
 from .. import storage
 from ..config import Settings
@@ -27,6 +27,8 @@ from ..models import (
     Connection,
     EmailLog,
     Preferences,
+    Star,
+    TapReport,
     User,
     utcnow,
 )
@@ -227,6 +229,18 @@ def delete_me(
     for upload in session.exec(select(BraceletUpload).where(BraceletUpload.user_id == user.id)).all():
         upload_ids.append(upload.id)
         session.delete(upload)
+    # Stars and tap reports point at connections, so they go first: this
+    # user's own, and anyone else's on a connection with this user.
+    my_connections = select(Connection.id).where(
+        or_(Connection.user_a_id == user.id, Connection.user_b_id == user.id)
+    )
+    for model in (Star, TapReport):
+        rows = session.exec(
+            select(model).where(or_(model.user_id == user.id, col(model.connection_id).in_(my_connections)))
+        ).all()
+        for row in rows:
+            session.delete(row)
+    session.flush()
     for model, column in (
         (Connection, Connection.user_a_id),
         (Connection, Connection.user_b_id),

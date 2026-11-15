@@ -41,16 +41,16 @@ class SendReport:
     failures: list[str] = field(default_factory=list)
 
 
-def connection_entry(person: User, prefs: Preferences | None) -> mailer.ConnectionEntry:
+def connection_entry(person: User, prefs: Preferences | None, starred: bool = False) -> mailer.ConnectionEntry:
     """How ``person`` appears in someone else's email."""
     contact = [(FIELD_LABELS[f], value) for f, value in shared_contact(person, prefs).items()]
     headline = person.position or " · ".join(p for p in (person.major, person.school) if p) or None
-    return mailer.ConnectionEntry(name=person.name, contact=contact, headline=headline)
+    return mailer.ConnectionEntry(name=person.name, contact=contact, headline=headline, starred=starred)
 
 
 def connections_for(session: Session, event_id: int, user_id: int) -> list[mailer.ConnectionEntry]:
     """Everyone ``user_id`` connected with at the event, in tap order."""
-    return [connection_entry(c.person, c.prefs) for c in connected_people(session, event_id, user_id)]
+    return [connection_entry(c.person, c.prefs, c.starred) for c in connected_people(session, event_id, user_id)]
 
 
 def send_test_email(session: Session, settings: Settings, event: Event, user: User) -> str:

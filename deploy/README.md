@@ -64,15 +64,10 @@ Open `https://<render address>/health`. It should say `{"ok":true}`. The first v
   `ADMIN_API_KEY` and `BRACELET_API_KEY`. Share them privately, never in the repo.
 
 ## For the firmware team (Seeed XIAO ESP32-S3)
-- **Endpoint:** `POST https://<render address>/bracelets/uploads`, as a multipart form with
-  `bracelet_id` (required), `event_id` (optional), `payload` (optional JSON text), and `files` (optional,
-  repeatable, for audio). Details are at the top of `backend/app/routers/bracelets.py`, and live docs are at `/docs`.
-- **Auth:** header `X-Bracelet-Key: <key>`. Keep the key out of the firmware repo.
-- **HTTPS only.** In Arduino, use `WiFiClientSecure` with `HTTPClient`. For the demo, `client.setInsecure()`
-  is fine. To verify the server properly, use `client.setCACert(...)` with the root CA of Render's certificate.
-- **Timeout of at least 90 seconds**, and retry on failure: a sleeping server takes up to a minute to answer.
-- **Keep uploads small.** Files are copied into the 1 GB database, so send compressed audio and
-  split anything long.
+The sketch is in [`firmware/`](../firmware/README.md). Put the Render address in `SERVER_URL` and the
+`BRACELET_API_KEY` in `BRACELET_KEY` in `secrets.h` (never committed). It uses `WiFiClientSecure` with
+`setInsecure()` for the demo, waits up to a minute at boot for a sleeping server, and keeps one HTTPS
+connection open so each tap report is fast.
 
 ## After the demo
 Turn off the keep-awake ping (**Actions > Keep backend awake > ... > Disable workflow**). The free

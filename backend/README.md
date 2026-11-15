@@ -62,6 +62,9 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | attendee | `POST /events/{id}/test-email` | Email me my summary for this event right now (for demos; doesn't count as the post-event email) |
 | organizer | `POST /events/{id}/send-summaries` | Send every attendee their post-event email (re-runs skip people already emailed) |
 | organizer | `POST /admin/email/test` | Send a test email to check SMTP |
+| bracelet | `GET /bracelets/{id}/status` | Has anyone claimed this bracelet yet? (`linked`, `event_id`, `first_name`). Polled at boot |
+| bracelet | `POST /bracelets/tap` | Live tap: `{"device", "peer", "rssi"}`. Answers `waiting` until the other bracelet reports the same tap, then `paired` with `peer_name` and `match_pct`. 409 = not linked. `peer: ""` is a manual (button) tap |
+| bracelet | `POST /bracelets/star` | `{"device"}`: star the wearer's latest connection (shown on the dashboard and in the email) |
 | bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, `event_id` (required once a bracelet is reused), `payload` (JSON text), `files` |
 
 Auth: attendees send `Authorization: Bearer <token>` (from the sign-in
@@ -90,10 +93,10 @@ each person chose to share. Every send is logged so nobody gets duplicates.
 
 ## Not built yet (on purpose)
 
-- **Anything that talks to the bracelet directly.** Firmware lives in the
-  hardware repo. `POST /bracelets/uploads` stores whatever a bracelet sends
-  with status `received`; `app/bracelets.py:process_upload` is an empty
-  placeholder for turning that into connections.
+- **Processing end-of-event uploads.** Taps are live now (`app/taps.py`,
+  firmware in `../firmware`), so connections no longer depend on uploads.
+  `POST /bracelets/uploads` still just stores what a bracelet sends, for the
+  future mic build's audio; `app/bracelets.py:process_upload` is a placeholder.
 - **AI**: transcription, conversation summaries, voice-note sorting, follow-up
   suggestions. The email template already has slots for them
   (`ConnectionEntry.summary`, `notes`, `follow_ups` in `app/mailer.py`).
@@ -113,7 +116,8 @@ app/
   storage.py      photos and uploaded files on disk
   mailer.py       email backends and the post-event email template
   post_event.py   sends an event's emails
-  bracelets.py    bracelet id format + processing placeholder
+  bracelets.py    bracelet id format + upload processing placeholder
+  taps.py         live taps: pairs two bracelets' reports into a Connection, stars, match %
   routers/        HTTP endpoints, one file per area
 tests/            pytest suite
 ```

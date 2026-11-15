@@ -1,6 +1,11 @@
-"""Receiving data from bracelets (PLACEHOLDER: store only, no processing).
+"""Endpoints the bracelets call (all need the X-Bracelet-Key header).
 
-    POST /bracelets/uploads   (header X-Bracelet-Key)
+    GET  /bracelets/{id}/status   has anyone claimed this bracelet yet? (polled at boot)
+    POST /bracelets/tap           live tap: "I'm touching that bracelet" (see app/taps.py)
+    POST /bracelets/star          star the wearer's latest connection (button click)
+    POST /bracelets/uploads       end-of-event upload (store only, for the mic build)
+
+Upload details:
 
 At the end of an event each bracelet (or the phone hotspot relaying for it)
 sends what it collected. The exact format belongs to the hardware team, so
@@ -24,12 +29,12 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlmodel import Session, select
 
-from .. import storage
+from .. import storage, taps
 from ..bracelets import normalize_bracelet_id
 from ..config import Settings
 from ..db import get_session
-from ..models import BraceletAssignment, BraceletUpload, Event
-from ..schemas import BraceletUploadOut
+from ..models import BraceletAssignment, BraceletUpload, Event, Preferences, User
+from ..schemas import BraceletStatusOut, BraceletUploadOut, StarIn, StarOut, TapIn, TapOut
 from ..security import get_settings, require_bracelet
 
 router = APIRouter(prefix="/bracelets", tags=["bracelets"], dependencies=[Depends(require_bracelet)])
@@ -37,6 +42,66 @@ router = APIRouter(prefix="/bracelets", tags=["bracelets"], dependencies=[Depend
 MAX_FILE_BYTES = 100 * 1024 * 1024  # ~100 MB per file is far beyond a night of compressed audio
 MAX_FILES = 200
 _CHUNK = 1024 * 1024
+
+NOT_LINKED = "this bracelet isn't linked to anyone yet: tap a phone to it and sign up"
+
+
+@router.get("/{bracelet_id}/status", response_model=BraceletStatusOut)
+def bracelet_status(bracelet_id: str, session: Annotated[Session, Depends(get_session)]) -> BraceletStatusOut:
+    """Whether someone has claimed this bracelet. The bracelet polls this until they have."""
+    try:
+        bid = normalize_bracelet_id(bracelet_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    assignment = taps.current_assignment(session, bid)
+    if assignment is None:
+        return BraceletStatusOut(bracelet_id=bid, linked=False)
+    user = session.get(User, assignment.user_id)
+    prefs = session.get(Preferences, assignment.user_id)
+    return BraceletStatusOut(
+        bracelet_id=bid,
+        linked=True,
+        event_id=assignment.event_id,
+        first_name=(user.name.split()[0] if user and user.name.strip() else None),
+        recording_consent=prefs.recording_consent if prefs else None,
+    )
+
+
+# Plain ``def`` endpoints run in FastAPI's thread pool, so a burst of tap
+# retries from many bracelets doesn't block the event loop.
+@router.post("/tap", response_model=TapOut)
+def tap(body: TapIn, session: Annotated[Session, Depends(get_session)]) -> TapOut:
+    """Report a tap. Answers "waiting" until the other bracelet reports it too, then "paired".
+
+    409 means this bracelet isn't linked to anyone yet.
+    """
+    try:
+        result = taps.report_tap(session, body.device, body.peer, rssi=body.rssi, event_id=body.event_id)
+    except taps.NotLinked:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_LINKED) from None
+    if result.status != "paired" or result.connection is None:
+        return TapOut(status="waiting")
+    return TapOut(
+        status="paired",
+        session=str(result.connection.id),
+        connection_id=result.connection.id,
+        peer_name=result.peer.name if result.peer else None,
+        match_pct=result.match_pct,
+        both_consented=result.both_consented,
+    )
+
+
+@router.post("/star", response_model=StarOut)
+def star(body: StarIn, session: Annotated[Session, Depends(get_session)]) -> StarOut:
+    """Star the wearer's most recent connection (shows on their dashboard and in the email)."""
+    try:
+        found = taps.star_latest(session, body.device, body.event_id)
+    except taps.NotLinked:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_LINKED) from None
+    if found is None:
+        return StarOut(status="no_connection")
+    conn, other = found
+    return StarOut(status="starred", connection_id=conn.id, peer_name=other.name if other else None)
 
 
 # A plain ``def`` (not async) so FastAPI runs it in a worker thread: the

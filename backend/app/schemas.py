@@ -177,6 +177,8 @@ class ConnectionOut(BaseModel):
     photo_url: Optional[str]
     # Whether this conversation was recorded (both consented at tap time).
     recorded: bool
+    # The signed-in user starred this person (short press on the bracelet button).
+    starred: bool = False
     # Only the fields this person chose to share, e.g. {"email": "...", "linkedin_url": "..."}.
     contact: dict[str, str]
     tapped_at: datetime
@@ -243,6 +245,70 @@ class BraceletUploadOut(BaseModel):
     user_id: Optional[int]
     status: str
     files: int
+
+
+# --- Live taps (firmware/trO_bracelet) ---------------------------------------
+
+
+def _bracelet_or_blank(v: str) -> str:
+    return normalize_bracelet_id(v) if v and v.strip() else ""
+
+
+class TapIn(BaseModel):
+    """One bracelet reporting a tap. Sent again every few hundred ms until paired."""
+
+    device: str = Field(description="this bracelet's id")
+    peer: str = Field("", description="the bracelet it's touching; empty for a manual (button) tap")
+    rssi: Optional[int] = Field(None, ge=-127, le=20)
+    event_id: Optional[int] = None
+
+    @field_validator("device")
+    @classmethod
+    def _device(cls, v: str) -> str:
+        return normalize_bracelet_id(v)
+
+    @field_validator("peer")
+    @classmethod
+    def _peer(cls, v: str) -> str:
+        return _bracelet_or_blank(v)
+
+
+class TapOut(BaseModel):
+    status: str  # "waiting" until the other bracelet reports, then "paired"
+    # The connection's id as text (kept as "session" for the original sketch).
+    session: Optional[str] = None
+    connection_id: Optional[int] = None
+    peer_name: Optional[str] = None
+    # 5-99, or null unless both people opted in to recommendations.
+    match_pct: Optional[int] = None
+    # Both people said yes to recording (for the mic build; the no-mic build ignores it).
+    both_consented: bool = False
+
+
+class StarIn(BaseModel):
+    device: str
+    event_id: Optional[int] = None
+
+    @field_validator("device")
+    @classmethod
+    def _device(cls, v: str) -> str:
+        return normalize_bracelet_id(v)
+
+
+class StarOut(BaseModel):
+    status: str  # "starred" or "no_connection"
+    connection_id: Optional[int] = None
+    peer_name: Optional[str] = None
+
+
+class BraceletStatusOut(BaseModel):
+    """What a bracelet checks at boot: has anyone claimed me yet?"""
+
+    bracelet_id: str
+    linked: bool
+    event_id: Optional[int] = None
+    first_name: Optional[str] = None
+    recording_consent: Optional[bool] = None
 
 
 # --- Email -----------------------------------------------------------------

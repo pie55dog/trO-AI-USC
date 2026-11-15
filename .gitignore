@@ -6,3 +6,6 @@ __pycache__/
 *.db
 backend/media/
 .DS_Store
+
+# Bracelet WiFi + server key (copy firmware/trO_bracelet/secrets.example.h)
+firmware/trO_bracelet/secrets.h

@@ -75,6 +75,8 @@ export interface Connection {
   bio: string | null;
   photo_url: string | null;
   recorded: boolean;
+  // Starred from the bracelet (short button press).
+  starred?: boolean;
   contact: Partial<Record<ShareableField, string>>;
   tapped_at: string;
 }

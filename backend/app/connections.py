@@ -9,7 +9,7 @@ from typing import Optional
 
 from sqlmodel import Session, col, or_, select
 
-from .models import SHAREABLE_FIELDS, Connection, Preferences, User
+from .models import SHAREABLE_FIELDS, Connection, Preferences, Star, User
 
 
 @dataclass
@@ -17,6 +17,8 @@ class ConnectedPerson:
     connection: Connection
     person: User
     prefs: Optional[Preferences]
+    # The user (whose list this is) starred this person from their bracelet.
+    starred: bool = False
 
 
 def shared_contact(person: User, prefs: Optional[Preferences]) -> dict[str, str]:
@@ -33,7 +35,7 @@ def connected_people(
 ) -> list[ConnectedPerson]:
     """Everyone ``user_id`` tapped at the event, in tap order.
 
-    Three queries total (connections, users, preferences), however many
+    Four queries total (connections, users, preferences, stars), however many
     connections there are. People whose accounts were deleted are skipped.
     """
     order = col(Connection.tapped_at).desc() if newest_first else col(Connection.tapped_at)
@@ -48,10 +50,19 @@ def connected_people(
         return []
     users = {u.id: u for u in session.exec(select(User).where(col(User.id).in_(other_ids))).all()}
     prefs = {p.user_id: p for p in session.exec(select(Preferences).where(col(Preferences.user_id).in_(other_ids))).all()}
+    starred = set(
+        session.exec(
+            select(Star.connection_id)
+            .where(Star.user_id == user_id)
+            .where(col(Star.connection_id).in_([r.id for r in rows]))
+        ).all()
+    )
 
     out = []
     for r in rows:
         other_id = r.user_b_id if r.user_a_id == user_id else r.user_a_id
         if other_id in users:
-            out.append(ConnectedPerson(connection=r, person=users[other_id], prefs=prefs.get(other_id)))
+            out.append(
+                ConnectedPerson(connection=r, person=users[other_id], prefs=prefs.get(other_id), starred=r.id in starred)
+            )
     return out

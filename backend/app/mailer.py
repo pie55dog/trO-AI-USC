@@ -152,6 +152,8 @@ class ConnectionEntry:
     # (label, value) pairs the person chose to share, e.g. ("Email", "x@usc.edu").
     contact: list[tuple[str, str]] = field(default_factory=list)
     headline: Optional[str] = None  # e.g. "Computer Science · USC"
+    # Starred with the bracelet button: "follow up with this one".
+    starred: bool = False
     # SLOT FOR LATER: AI conversation summary, the recipient's own voice
     # notes, and suggested follow-ups. Left empty in the first run.
     summary: Optional[str] = None
@@ -193,7 +195,7 @@ def render_post_event_email(
     else:
         lines.append(f"Thanks for coming to {event_name}! We didn't record any taps for you this time.")
     for c in connections:
-        lines += ["", f"- {c.name}" + (f" ({c.headline})" if c.headline else "")]
+        lines += ["", f"- {'★ ' if c.starred else ''}{c.name}" + (f" ({c.headline})" if c.headline else "")]
         lines += [f"    {label}: {value}" for label, value in c.contact]
         if c.summary:
             lines.append(f"    What you talked about: {c.summary}")
@@ -205,7 +207,8 @@ def render_post_event_email(
     # HTML version: simple inline styles, since many mail apps strip <style>.
     cards = []
     for c in connections:
-        parts = [f'<p style="margin:0;font-size:18px;font-weight:600">{_esc(c.name)}</p>']
+        star = '<span style="color:#FFCC00">★</span> ' if c.starred else ""
+        parts = [f'<p style="margin:0;font-size:18px;font-weight:600">{star}{_esc(c.name)}</p>']
         if c.headline:
             parts.append(f'<p style="margin:4px 0 0;color:#555">{_esc(c.headline)}</p>')
         if c.contact:
