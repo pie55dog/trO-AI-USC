@@ -124,6 +124,9 @@ Same idea, same LEDs and button, but:
 
 ## Adding the mic
 
+Until then, the phone can be the mic: open **Phone mic** on the dashboard (`/e/<event>/mic`) and keep
+the page open. Taps work as normal and the phone records (see `backend/README.md`, "Phone mic").
+
 Everything after the mic is already built: the upload, transcription, who-said-what, the notes
 in the app and the email. To turn it on:
 

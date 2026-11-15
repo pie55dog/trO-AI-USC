@@ -6,6 +6,7 @@
  *   /e/:eventId/welcome      step 1: email + profile
  *   /e/:eventId/preferences  step 2: recording consent + recommendations
  *   /e/:eventId/notes/:userId  conversation notes for one person you met
+ *   /e/:eventId/mic          phone mic: the phone records taps until bracelets have mics
  *   /demo                    demo hub linking every screen (home page on preview builds)
  *   /demo/notes              a labelled sample of what a recorded conversation looks like
  *   /organizer/*             organizer console: set up events, registration, summary emails
@@ -21,6 +22,7 @@ import AuthCallback from "./screens/AuthCallback";
 import Demo, { DEMO_EVENT } from "./screens/Demo";
 import EventHome from "./screens/EventHome";
 import PersonNotesScreen, { NotesView } from "./screens/PersonNotes";
+import PhoneMic from "./screens/PhoneMic";
 import Organizer from "./screens/organizer/Organizer";
 import Preferences from "./screens/Preferences";
 import { SAMPLE_NOTES } from "./sampleNotes";
@@ -71,6 +73,7 @@ export default function App() {
       <Route path="/e/:eventId/preferences" element={<PerEvent><Preferences /></PerEvent>} />
       <Route path="/e/:eventId/tutorial" element={<PerEvent><Tutorial /></PerEvent>} />
       <Route path="/e/:eventId/notes/:userId" element={<PerEvent><PersonNotesScreen /></PerEvent>} />
+      <Route path="/e/:eventId/mic" element={<PerEvent><PhoneMic /></PerEvent>} />
       <Route path="/organizer/*" element={<Organizer />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to="/" replace />} />

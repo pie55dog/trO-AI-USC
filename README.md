@@ -5,6 +5,11 @@ Tro: a networking bracelet for Trojans. Tap bracelets to connect, keep your phon
 - [`backend/`](backend/README.md): FastAPI API (LinkedIn sign-in, onboarding, bracelet assignment and uploads, post-event email)
 - [`frontend/`](frontend/README.md): mobile web app (sign-up, preferences, tutorial, event dashboard) and the organizer console at `/organizer` (event setup, registration, check-in, summary emails)
 - [`firmware/`](firmware/README.md): the bracelet (Seeed XIAO ESP32-S3): ESP-NOW tap detection, live pairing through the backend, LEDs, button
+- [`SECURITY.md`](SECURITY.md): how trO protects accounts, recordings and the AI pipeline
+
+**No mic on the bracelet yet?** Open the app's **Phone mic** page (`/e/<event>/mic`, button on the
+dashboard) and keep it open: the bracelets still tap, and the phone records each conversation where
+both people said yes, then sends it through the same AI notes pipeline.
 
 ## Live deployment
 

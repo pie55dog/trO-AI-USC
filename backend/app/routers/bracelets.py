@@ -52,6 +52,7 @@ from sqlmodel import Session, select
 
 from .. import recordings, storage, taps
 from ..bracelets import normalize_bracelet_id
+from ..ratelimit import BRACELET_UPLOADS
 from ..config import Settings
 from ..db import get_session
 from ..models import BraceletAssignment, BraceletUpload, Connection, Event, Preferences, User
@@ -201,6 +202,9 @@ async def upload_recording(
     ESP32 straight out of its memory. Transcription and notes happen after
     the response, so the bracelet isn't kept waiting.
     """
+    # Each clip costs an AI call: cap it per bracelet. (Not per address: every
+    # bracelet at an event shares one phone hotspot.)
+    BRACELET_UPLOADS.check(f"device:{device.upper()}")
     body = bytearray()
     async for chunk in request.stream():
         body += chunk

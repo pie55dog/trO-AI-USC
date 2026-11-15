@@ -178,14 +178,19 @@ class ConnectionOut(BaseModel):
     """Someone the signed-in user tapped bracelets with (event dashboard)."""
 
     user_id: int
+    # The tap itself. The phone mic (frontend PhoneMic screen) uploads its clip against this.
+    connection_id: Optional[int] = None
     name: str
     position: Optional[str]
     school: Optional[str]
     major: Optional[str]
     bio: Optional[str]
     photo_url: Optional[str]
-    # Whether this conversation was recorded (both consented at tap time).
+    # Whether this conversation was recorded (audio arrived; only possible if both consented).
     recorded: bool
+    # Both people currently say yes to recording. The phone mic only records when this is true;
+    # the server checks again when the audio arrives.
+    both_consented: bool = False
     # The signed-in user starred this person (short press on the bracelet button).
     starred: bool = False
     # Only the fields this person chose to share, e.g. {"email": "...", "linkedin_url": "..."}.

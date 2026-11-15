@@ -13,12 +13,13 @@ from __future__ import annotations
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, or_, select
 
 from .. import recordings, storage
+from ..ratelimit import SIGN_UPS, client_ip
 from ..config import Settings
 from ..db import get_session
 from ..models import (
@@ -119,6 +120,7 @@ def me_out(session: Session, user: User) -> MeOut:
 @router.post("/users", response_model=SignUpOut, status_code=status.HTTP_201_CREATED)
 def sign_up(
     body: SignUp,
+    request: Request,
     session: DB,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> SignUpOut:
@@ -128,6 +130,7 @@ def sign_up(
     account is refused (409) rather than signed into, because we don't
     verify email ownership here.
     """
+    SIGN_UPS.check(f"ip:{client_ip(request)}")
     if session.exec(select(User).where(User.email == body.email)).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "an account with this email already exists")
     user = User(name=body.name, email=body.email)
