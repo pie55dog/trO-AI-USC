@@ -16,14 +16,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from .. import mailer, post_event
+from .. import mailer, notes, post_event, recordings
 from ..config import Settings
 from ..db import get_session
-from ..connections import connected_people, shared_contact
+from ..connections import shared_contact
 from ..models import BraceletAssignment, Event, Preferences, User, utcnow
 from ..schemas import (
     BraceletAssignmentOut,
@@ -31,6 +31,7 @@ from ..schemas import (
     ConnectionOut,
     EventCreate,
     EventOut,
+    NotesPreview,
     SendSummariesRequest,
     SendSummariesResult,
 )
@@ -154,22 +155,29 @@ def my_connections(
     Contact info is limited to what each person chose to share.
     """
     _event_or_404(session, event_id)
-    return [
-        ConnectionOut(
-            user_id=c.person.id,
-            name=c.person.name,
-            position=c.person.position,
-            school=c.person.school,
-            major=c.person.major,
-            bio=c.person.bio,
-            photo_url=photo_url(c.person),
-            recorded=c.connection.recorded,
-            starred=c.starred,
-            contact=shared_contact(c.person, c.prefs),
-            tapped_at=c.connection.tapped_at,
-        )
-        for c in connected_people(session, event_id, user.id, newest_first=True)
-    ]
+    return [connection_out(p) for p in notes.event_notes(session, event_id, user.id, newest_first=True).people]
+
+
+def connection_out(p: notes.PersonNotes) -> ConnectionOut:
+    c = p.who
+    return ConnectionOut(
+        user_id=c.person.id,
+        name=c.person.name,
+        position=c.person.position,
+        school=c.person.school,
+        major=c.person.major,
+        bio=c.person.bio,
+        photo_url=photo_url(c.person),
+        recorded=c.connection.recorded,
+        starred=c.starred,
+        contact=shared_contact(c.person, c.prefs),
+        tapped_at=c.connection.tapped_at,
+        notes=NotesPreview(
+            conversation=p.conversation_status,
+            voice_notes=len(p.voice_notes),
+            follow_ups=len(p.follow_ups),
+        ),
+    )
 
 
 @router.post(
@@ -179,16 +187,22 @@ def my_connections(
 )
 def send_summaries(
     event_id: int,
+    request: Request,
     session: DB,
     settings: Annotated[Settings, Depends(get_settings)],
     body: SendSummariesRequest | None = None,
 ) -> SendSummariesResult:
     """Email every attendee who they met. Safe to re-run: already-sent emails are skipped.
 
+    Unprocessed recordings are finished first. Once every email has gone
+    out, the event's audio, transcripts and loudness data are deleted.
+
     Runs synchronously, which is fine for a few hundred attendees. For a big
     career fair, move this to a background job.
     """
     event = _event_or_404(session, event_id)
+    # Finish any conversations or voice notes still waiting, so they make the email.
+    recordings.process_pending(session, settings, request.app.state.ai_factory, event_id)
     try:
         report = post_event.send_event_emails(session, settings, event, resend=bool(body and body.resend))
     except mailer.EmailError as exc:  # e.g. SMTP not configured

@@ -5,7 +5,9 @@
  *   /e/:eventId/tutorial     how trO works, then on to /welcome
  *   /e/:eventId/welcome      step 1: email + profile
  *   /e/:eventId/preferences  step 2: recording consent + recommendations
+ *   /e/:eventId/notes/:userId  conversation notes for one person you met
  *   /demo                    demo hub linking every screen (home page on preview builds)
+ *   /demo/notes              a labelled sample of what a recorded conversation looks like
  *   /auth/callback           LinkedIn sign-in returns here
  */
 
@@ -17,7 +19,9 @@ import { buttonClass, Screen, StickyCta } from "./components/ui";
 import AuthCallback from "./screens/AuthCallback";
 import Demo, { DEMO_EVENT } from "./screens/Demo";
 import EventHome from "./screens/EventHome";
+import PersonNotesScreen, { NotesView } from "./screens/PersonNotes";
 import Preferences from "./screens/Preferences";
+import { SAMPLE_NOTES } from "./sampleNotes";
 import Tutorial from "./screens/Tutorial";
 import Welcome from "./screens/Welcome";
 import { lastEventStore } from "./session";
@@ -59,10 +63,12 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/demo" element={<Demo />} />
+      <Route path="/demo/notes" element={<NotesView data={SAMPLE_NOTES} back={{ to: "/demo", label: "Back to the demo" }} sample />} />
       <Route path="/e/:eventId" element={<PerEvent><EventHome /></PerEvent>} />
       <Route path="/e/:eventId/welcome" element={<PerEvent><Welcome /></PerEvent>} />
       <Route path="/e/:eventId/preferences" element={<PerEvent><Preferences /></PerEvent>} />
       <Route path="/e/:eventId/tutorial" element={<PerEvent><Tutorial /></PerEvent>} />
+      <Route path="/e/:eventId/notes/:userId" element={<PerEvent><PersonNotesScreen /></PerEvent>} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

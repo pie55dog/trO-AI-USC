@@ -41,6 +41,10 @@ services:
         sync: false
       - key: EMAIL_RELAY_KEY
         sync: false
+      # Transcription + conversation notes. A free Groq key (no card):
+      # console.groq.com > API Keys. Without it, recordings wait unprocessed.
+      - key: AI_API_KEY
+        sync: false
       # From developer.linkedin.com > your app > Auth. The callback address
       # is worked out from Render's own URL for the service.
       - key: LINKEDIN_CLIENT_ID

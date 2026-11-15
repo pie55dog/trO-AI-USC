@@ -14,9 +14,10 @@ from dataclasses import dataclass, field
 
 from sqlmodel import Session, select
 
-from . import mailer
+from . import mailer, recordings
 from .config import Settings
-from .connections import connected_people, shared_contact
+from .connections import shared_contact
+from .notes import PersonNotes, event_notes
 from .models import BraceletAssignment, EmailLog, Event, Preferences, User, utcnow
 
 # How each shareable field is labelled in the email.
@@ -39,6 +40,8 @@ class SendReport:
     failed: int = 0
     # "user <id>: <reason>" for each failure, so organizers can fix and re-run.
     failures: list[str] = field(default_factory=list)
+    # Recordings whose audio/transcript was deleted after the emails went out.
+    recordings_purged: int = 0
 
 
 def connection_entry(person: User, prefs: Preferences | None, starred: bool = False) -> mailer.ConnectionEntry:
@@ -48,9 +51,28 @@ def connection_entry(person: User, prefs: Preferences | None, starred: bool = Fa
     return mailer.ConnectionEntry(name=person.name, contact=contact, headline=headline, starred=starred)
 
 
+def _entry_with_notes(p: PersonNotes) -> mailer.ConnectionEntry:
+    entry = connection_entry(p.who.person, p.who.prefs, p.who.starred)
+    convo = p.conversation
+    if convo is not None:
+        entry.summary = convo.summary or None
+        first = p.who.person.name.split()[0] if p.who.person.name.strip() else "They"
+        for c in convo.commitments:
+            entry.promises.append(f"You said you'd {c['what']}" if c["who"] == "you" else f"{first} said they'd {c['what']}")
+    entry.notes = [v.text for v in p.voice_notes]
+    entry.follow_ups = p.follow_ups
+    return entry
+
+
 def connections_for(session: Session, event_id: int, user_id: int) -> list[mailer.ConnectionEntry]:
-    """Everyone ``user_id`` connected with at the event, in tap order."""
-    return [connection_entry(c.person, c.prefs, c.starred) for c in connected_people(session, event_id, user_id)]
+    """Everyone ``user_id`` connected with at the event, in tap order, with their notes."""
+    return [_entry_with_notes(p) for p in event_notes(session, event_id, user_id).people]
+
+
+def other_notes_for(session: Session, event_id: int, user_id: int) -> list[str]:
+    """Voice notes that weren't about anyone (ideas, tasks)."""
+    labels = {"idea": "Idea", "task": "To do", "other": "Note"}
+    return [f"{labels.get(v.category, 'Note')}: {v.text}" for v in event_notes(session, event_id, user_id).other]
 
 
 def send_test_email(session: Session, settings: Settings, event: Event, user: User) -> str:
@@ -64,7 +86,7 @@ def send_test_email(session: Session, settings: Settings, event: Event, user: Us
     if not user.email:
         raise ValueError("Add an email to your profile first")
     subject, text, html_body = mailer.render_post_event_email(
-        user.name, event.name, connections_for(session, event.id, user.id)
+        user.name, event.name, connections_for(session, event.id, user.id), other_notes_for(session, event.id, user.id)
     )
     message = mailer.build_message(settings, user.email, subject, text, html_body)
     mailer.get_backend(settings).send(message)
@@ -102,7 +124,7 @@ def send_event_emails(
             continue
 
         subject, text, html_body = mailer.render_post_event_email(
-            user.name, event.name, connections_for(session, event.id, user.id)
+            user.name, event.name, connections_for(session, event.id, user.id), other_notes_for(session, event.id, user.id)
         )
         message = mailer.build_message(settings, user.email, subject, text, html_body)
 
@@ -123,4 +145,7 @@ def send_event_emails(
         session.add(log)
         session.commit()
 
+    # Privacy promise: audio and transcripts go once everyone has their email.
+    if report.failed == 0:
+        report.recordings_purged = recordings.purge_event(session, settings, event.id)
     return report

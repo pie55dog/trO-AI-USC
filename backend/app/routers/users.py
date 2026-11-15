@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, or_, select
 
-from .. import storage
+from .. import recordings, storage
 from ..config import Settings
 from ..db import get_session
 from ..models import (
@@ -234,6 +234,8 @@ def delete_me(
     my_connections = select(Connection.id).where(
         or_(Connection.user_a_id == user.id, Connection.user_b_id == user.id)
     )
+    # Recordings and notes from this user's conversations hold their voice and words.
+    audio_files = recordings.delete_for_user(session, settings, user.id, my_connections)
     for model in (Star, TapReport):
         rows = session.exec(
             select(model).where(or_(model.user_id == user.id, col(model.connection_id).in_(my_connections)))
@@ -259,6 +261,8 @@ def delete_me(
     # Remove files only after the database commit succeeded, so a failed
     # delete never leaves rows pointing at missing files.
     storage.delete_media(settings.media_dir, photo)
+    for rel in audio_files:
+        storage.delete_media(settings.media_dir, rel)
     for upload_id in upload_ids:
         storage.delete_upload_dir(settings.media_dir, upload_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

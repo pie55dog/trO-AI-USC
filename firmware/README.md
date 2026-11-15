@@ -1,6 +1,7 @@
 # trO bracelet firmware
 
-Runs on a **Seeed XIAO ESP32-S3** with 3 LEDs, a button and a battery (no mic in this build).
+Runs on a **Seeed XIAO ESP32-S3** with 3 LEDs, a button and a battery. The mic is optional:
+the code for it is in, switched off until one is attached (see [Adding the mic](#adding-the-mic)).
 Hold two bracelets together for half a second and both people show up on each other's
 dashboard, live, and in the next-morning email.
 
@@ -121,7 +122,49 @@ Same idea, same LEDs and button, but:
 - Knows whether it's been claimed yet and says so with its LEDs.
 - No per-board editing, and no WiFi password in the code.
 
-## Not in this build
+## Adding the mic
 
-The mic. The backend already has the hooks for it: `/bracelets/tap` returns `both_consented` (start
-the recording light only when it's true), and `POST /bracelets/uploads` accepts audio files.
+Everything after the mic is already built: the upload, transcription, who-said-what, the notes
+in the app and the email. To turn it on:
+
+1. **Pick a mic.**
+   - Easiest: the **XIAO ESP32-S3 Sense** expansion board (the camera board) has a mic built in.
+     Snap it on. Nothing to wire. Keep `MIC_TYPE MIC_TYPE_PDM`.
+   - Or an **INMP441** I2S mic: SCK → D2, WS → D3, SD → D4, L/R → GND, VDD → 3V3, GND → GND.
+     Set `MIC_TYPE MIC_TYPE_I2S` (pins are in `config.h`).
+2. In `config.h` set `#define MIC_ENABLED 1`.
+3. Arduino IDE: **Tools > PSRAM > OPI PSRAM** (recordings are kept in the 8 MB PSRAM until uploaded).
+4. Flash. Serial Monitor should say `Mic ready`.
+
+How it behaves:
+
+| What happens | Bracelet |
+|---|---|
+| Tap someone and **both** of you said yes to recording at sign-up | Starts recording; LED3 blinks the whole time |
+| Either of you said no | No recording, contact swap only (the server also refuses the audio) |
+| Click the button, walk apart (20 s out of range), tap someone else, or 3 minutes pass | Recording stops and uploads in the background |
+| Double-click | Records a voice note (LED3 solid). Click to stop (or 30 s) |
+| Click when not recording | Star your latest contact, as before |
+
+Each bracelet uploads its own clip to `POST /bracelets/recordings` (raw WAV body, 16 kHz 16-bit mono)
+with the `connection_id` from the tap and its NTP start time. The server uses the two clips together
+to work out who said what: each person is much louder on their own bracelet. Audio is deleted as soon
+as it's transcribed; transcripts are deleted after the summary email.
+
+Tune `MIC_GAIN_SHIFT` if recordings are too quiet (raise it) or distorted (lower it). Speak normally
+with the bracelet on your wrist and check the level with `fake_bracelet.py record` and the app.
+
+Test the whole pipeline without the mic: tap two fake bracelets, then send any WAV as each of them:
+
+```bash
+python3 firmware/tools/fake_bracelet.py tap TRO-1 TRO-2          # prints connection_id
+python3 firmware/tools/fake_bracelet.py record TRO-1 alice-side.wav --connection 12
+python3 firmware/tools/fake_bracelet.py record TRO-2 bob-side.wav --connection 12
+python3 firmware/tools/fake_bracelet.py record TRO-1 note.wav --voice-note
+```
+
+The backend needs a free Groq key (`AI_API_KEY`) to transcribe; without it, recordings wait and are
+processed once the key is added (`POST /admin/process`).
+
+**Not compiled yet with the mic switched on:** the mic code was written without a board to compile
+against. Before relying on it, flash it once with `MIC_ENABLED 1` and fix anything the IDE flags.

@@ -79,6 +79,66 @@ export interface Connection {
   starred?: boolean;
   contact: Partial<Record<ShareableField, string>>;
   tapped_at: string;
+  /** What the "Conversation notes" line on the card says. Older servers leave it out. */
+  notes?: NotesPreview;
+}
+
+/** not_recorded: contact only. processing / waiting_for_ai: audio in, notes not yet. */
+export type ConversationStatus = "not_recorded" | "processing" | "waiting_for_ai" | "ready" | "failed" | "expired";
+
+export interface NotesPreview {
+  conversation: ConversationStatus;
+  voice_notes: number;
+  follow_ups: number;
+}
+
+export interface Commitment {
+  who: "you" | "them";
+  what: string;
+  /** The exact words from the transcript the promise was checked against. */
+  quote: string;
+}
+
+export interface TranscriptLine {
+  speaker: "you" | "them" | "unsure";
+  text: string;
+  start: number;
+}
+
+export interface ConversationNotes {
+  summary: string;
+  topics: string[];
+  about_them: string[];
+  commitments: Commitment[];
+  follow_ups: string[];
+  /** Empty once the summary email has gone out (transcripts are deleted). */
+  transcript: TranscriptLine[];
+  speaker_method: "two_bracelets" | "one_bracelet" | "context" | string;
+  updated_at: string;
+}
+
+export interface VoiceNote {
+  id: number;
+  category: "person" | "idea" | "task" | "other";
+  text: string;
+  follow_up: string | null;
+  matched_by: "name" | "ai" | "user" | "";
+  recorded_at: string;
+  person_user_id: number | null;
+  person_name: string | null;
+}
+
+export interface PersonNotes {
+  person: Connection;
+  conversation_status: ConversationStatus;
+  conversation: ConversationNotes | null;
+  voice_notes: VoiceNote[];
+}
+
+export interface EventNotes {
+  people: PersonNotes[];
+  other: VoiceNote[];
+  voice_notes_processing: number;
 }
 
 export type ProfileUpdate = Partial<Omit<Profile, "id" | "photo_url">>;
@@ -205,6 +265,10 @@ const serverApi = {
     }),
   myBracelet: (eventId: number) => request<BraceletAssignment>(`/events/${eventId}/bracelet`),
   connections: (eventId: number) => request<Connection[]>(`/events/${eventId}/connections`),
+  /** Everything the signed-in person noted at this event. */
+  notes: (eventId: number) => request<EventNotes>(`/events/${eventId}/notes`),
+  /** One person they met: AI summary, promises, follow-ups, their voice notes. */
+  personNotes: (eventId: number, userId: number) => request<PersonNotes>(`/events/${eventId}/notes/${userId}`),
   /** Email the signed-in person their summary for this event right now. */
   testEmail: (eventId: number) => request<{ sent_to: string; delivered: boolean }>(`/events/${eventId}/test-email`, { method: "POST" }),
 };

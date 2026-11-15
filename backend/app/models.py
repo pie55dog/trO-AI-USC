@@ -12,6 +12,11 @@ and the user flow in section 4:
            Star (a user starred a connection with the bracelet button)
            BraceletUpload (raw data a bracelet sent; stored, not processed yet)
            EmailLog (one post-event email per attendee per event)
+
+    Conversation audio and notes (app/conversations.py, app/voice_notes.py):
+           Recording (one audio clip from one bracelet: a conversation or a voice note)
+           ConversationNote (one person's AI notes on one conversation; two per conversation)
+           VoiceNote (a note the wearer spoke between conversations, sorted to a person or category)
 """
 
 from __future__ import annotations
@@ -241,3 +246,96 @@ class MediaFile(SQLModel, table=True):
     path: str = Field(primary_key=True)
     data: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Recording(SQLModel, table=True):
+    """One audio clip from one bracelet.
+
+    ``kind`` is "conversation" (recorded during a tap, only when both people
+    consented) or "voice_note" (the wearer talking to their own bracelet).
+    Each bracelet in a conversation records its own clip, so a conversation
+    usually has two: one where each person's own voice is the loud one.
+    That difference is how we tell who said what (app/speakers.py).
+
+    The audio is deleted as soon as it has been transcribed and measured.
+    What stays is the transcript (deleted after the summary email) and a
+    loudness envelope (numbers only, no speech).
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    kind: str = Field(index=True)  # "conversation" | "voice_note"
+    event_id: int = Field(foreign_key="event.id", index=True)
+    # Whose bracelet recorded it (the wearer).
+    user_id: int = Field(foreign_key="user.id", index=True)
+    bracelet_id: str
+    # The tap this conversation belongs to; empty for voice notes.
+    connection_id: Optional[int] = Field(default=None, foreign_key="connection.id", index=True)
+    # Wall-clock start reported by the bracelet (NTP), used to line up the two
+    # clips of one conversation. Falls back to when the upload arrived.
+    started_at: datetime = Field(default_factory=utcnow)
+    received_at: datetime = Field(default_factory=utcnow)
+    duration_s: Optional[float] = None
+    # Relative to MEDIA_DIR. Cleared once the audio is deleted.
+    audio_path: Optional[str] = None
+    content_type: str = "audio/wav"
+    # "received" -> "transcribed" (or "measured" if it only needed its
+    # loudness) -> "done"; "waiting_for_ai" when no AI key is set; "failed".
+    status: str = "received"
+    error: Optional[str] = None
+    # Whisper's segments: [{"start": s, "end": s, "text": "..."}]. Cleared after the email.
+    transcript: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Loudness every ENVELOPE_MS (dBFS), for speaker attribution. No speech content.
+    envelope: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+
+
+class ConversationNote(SQLModel, table=True):
+    """What ``user_id`` gets out of one recorded conversation: notes about the other person.
+
+    A conversation makes two of these, one per person, each written from
+    that person's side ("Jordan said they'd send you...").
+    """
+
+    __table_args__ = (UniqueConstraint("connection_id", "user_id", name="uq_note_connection_user"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    connection_id: int = Field(foreign_key="connection.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    summary: str = ""
+    # Short topic tags, e.g. ["GPU tooling", "summer internships"].
+    topics: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # Things the other person said about themselves worth remembering.
+    about_them: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # Promises, each {"who": "you"|"them", "what": "...", "quote": "..."}.
+    # Only kept if the quote is really in the transcript.
+    commitments: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # Suggested next steps, e.g. "Send Jordan your portfolio link".
+    follow_ups: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # The conversation line by line: [{"speaker": "you"|"them"|"unsure", "text": ..., "start": s}].
+    # Cleared after the summary email, like the raw transcript.
+    transcript: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # How speakers were told apart: "two_bracelets", "one_bracelet" or "context".
+    speaker_method: str = ""
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class VoiceNote(SQLModel, table=True):
+    """A note the wearer spoke into their bracelet, sorted by the AI.
+
+    ``category`` is "person" (about someone they met: ``connection_id`` is
+    set), "idea", "task" or "other".
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    recording_id: Optional[int] = Field(default=None, foreign_key="recording.id", index=True)
+    event_id: int = Field(foreign_key="event.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    connection_id: Optional[int] = Field(default=None, foreign_key="connection.id", index=True)
+    category: str = "other"
+    # The note, cleaned up ("um"s removed), in the speaker's words.
+    text: str = ""
+    # A suggested next step, if the note implies one.
+    follow_up: Optional[str] = None
+    # "name" (they said the person's name), "ai" (the AI matched it from
+    # context), "user" (moved by hand in the app) or "" (not about a person).
+    matched_by: str = ""
+    recorded_at: datetime = Field(default_factory=utcnow)

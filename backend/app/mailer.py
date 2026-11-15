@@ -154,9 +154,11 @@ class ConnectionEntry:
     headline: Optional[str] = None  # e.g. "Computer Science · USC"
     # Starred with the bracelet button: "follow up with this one".
     starred: bool = False
-    # SLOT FOR LATER: AI conversation summary, the recipient's own voice
-    # notes, and suggested follow-ups. Left empty in the first run.
+    # AI summary of the recorded conversation (only if both consented).
     summary: Optional[str] = None
+    # Promises either person made, checked against the transcript.
+    promises: list[str] = field(default_factory=list)
+    # The recipient's own voice notes about this person.
     notes: list[str] = field(default_factory=list)
     follow_ups: list[str] = field(default_factory=list)
 
@@ -175,7 +177,7 @@ def _contact_html(label: str, value: str) -> str:
 
 
 def render_post_event_email(
-    recipient_name: str, event_name: str, connections: list[ConnectionEntry]
+    recipient_name: str, event_name: str, connections: list[ConnectionEntry], other_notes: Optional[list[str]] = None
 ) -> tuple[str, str, str]:
     """Return (subject, text, html) for one attendee's post-event email.
 
@@ -199,8 +201,14 @@ def render_post_event_email(
         lines += [f"    {label}: {value}" for label, value in c.contact]
         if c.summary:
             lines.append(f"    What you talked about: {c.summary}")
+        lines += [f"    Promised: {p}" for p in c.promises]
         lines += [f"    Your note: {n}" for n in c.notes]
         lines += [f"    Follow up: {f}" for f in c.follow_ups]
+    other_notes = other_notes or []
+    if other_notes:
+        lines += ["", "Your other notes:"] + [f"- {n}" for n in other_notes]
+    if any(c.summary for c in connections):
+        lines += ["", "The recordings and transcripts behind these notes are now deleted."]
     lines += ["", "See you at the next one,", "Tro"]
     text = "\n".join(lines)
 
@@ -216,6 +224,8 @@ def render_post_event_email(
             parts.append(f'<ul style="margin:12px 0 0;padding-left:18px">{items}</ul>')
         if c.summary:
             parts.append(f'<p style="margin:12px 0 0"><b>What you talked about:</b> {_esc(c.summary)}</p>')
+        for p in c.promises:
+            parts.append(f'<p style="margin:8px 0 0"><b>Promised:</b> {_esc(p)}</p>')
         for n in c.notes:
             parts.append(f'<p style="margin:8px 0 0"><b>Your note:</b> {_esc(n)}</p>')
         for f in c.follow_ups:
@@ -230,12 +240,19 @@ def render_post_event_email(
         if count
         else f"Thanks for coming to {_esc(event_name)}! We didn't record any taps for you this time."
     )
+    extra = ""
+    if other_notes:
+        items = "".join(f'<li style="margin:4px 0">{_esc(n)}</li>' for n in other_notes)
+        extra += f'<p style="margin:24px 0 0;font-weight:600">Your other notes</p><ul style="margin:8px 0 0;padding-left:18px">{items}</ul>'
+    if any(c.summary for c in connections):
+        extra += '<p style="margin:24px 0 0;color:#555;font-size:13px">The recordings and transcripts behind these notes are now deleted.</p>'
     html_body = (
         '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;'
         'max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a;line-height:1.5">'
         f'<p style="font-size:16px">Hi {_esc(first_name)},</p>'
         f'<p style="font-size:16px">{intro}</p>'
         + "".join(cards)
+        + extra
         + '<p style="margin-top:32px;color:#555">See you at the next one,<br>Tro</p></div>'
     )
     return subject, text, html_body

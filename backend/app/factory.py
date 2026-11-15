@@ -12,19 +12,22 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import ai
 from .config import Settings, load_settings
 from .db import make_engine
-from .routers import admin, auth, bracelets, events, users
+from .routers import admin, auth, bracelets, events, notes, users
 
 
 def create_app(
     settings: Optional[Settings] = None,
     http_client_factory: Optional[Callable[[], httpx.Client]] = None,
+    ai_factory: Optional[Callable[[], "ai.AIClient"]] = None,
 ) -> FastAPI:
     """Build the app.
 
-    ``settings`` and ``http_client_factory`` are injectable so tests can use a
-    temporary database and a fake LinkedIn without touching the network.
+    ``settings``, ``http_client_factory`` and ``ai_factory`` are injectable so
+    tests can use a temporary database, a fake LinkedIn and a fake AI
+    without touching the network.
     """
     settings = settings or load_settings()
     logging.basicConfig(level=logging.INFO)
@@ -35,6 +38,8 @@ def create_app(
     app.state.settings = settings
     app.state.engine = make_engine(settings.database_url)
     app.state.http_client_factory = http_client_factory or (lambda: httpx.Client(timeout=10))
+    # Transcription + notes (Groq by default). Raises ai.AIError when no key is set.
+    app.state.ai_factory = ai_factory or (lambda: ai.make_client(settings))
     settings.media_dir.mkdir(parents=True, exist_ok=True)
 
     app.add_middleware(
@@ -44,7 +49,7 @@ def create_app(
         allow_headers=["*"],
     )
 
-    for module in (auth, users, events, bracelets, admin):
+    for module in (auth, users, events, notes, bracelets, admin):
         app.include_router(module.router)
 
     @app.get("/health", tags=["meta"])

@@ -8,7 +8,7 @@
  * backend (see backend/app/routers/users.py) so the flow behaves the same.
  */
 
-import type { BraceletAssignment, Connection, EventInfo, Me, Preferences, Profile, ProfileUpdate, ShareableField } from "./api";
+import type { BraceletAssignment, Connection, EventInfo, EventNotes, Me, PersonNotes, Preferences, Profile, ProfileUpdate, ShareableField } from "./api";
 import { ApiError, storageGet, storageSet } from "./api";
 
 const STATE_KEY = "tro.preview";
@@ -153,6 +153,14 @@ export const previewApi = {
     requireState();
     return resolved<Connection[]>([]);
   },
+
+  // Notes come from recordings, which need the backend.
+  notes: (_eventId: number) => {
+    requireState();
+    return resolved<EventNotes>({ people: [], other: [], voice_notes_processing: 0 });
+  },
+  personNotes: (_eventId: number, _userId: number): Promise<PersonNotes> =>
+    Promise.reject(new ApiError(404, "Notes need the trO server. This preview has none.")),
 
   // Sending email needs the real server (scripts/local-server.sh).
   testEmail: (_eventId: number): Promise<{ sent_to: string; delivered: boolean }> =>

@@ -51,3 +51,28 @@
 // bracelet (NFC Tools app > Write > Add a record > URL).
 #define APP_URL "https://pie55dog.github.io/trO-AI-USC"
 #define NFC_EVENT_ID 1  // the event id the organizer created (POST /events)
+
+// ---- Microphone (conversation notes + voice notes) -----------------------
+// 0 = no-mic build (taps and stars only). Set to 1 once a mic is attached;
+// nothing else in the sketch needs to change. Needs PSRAM: Arduino IDE >
+// Tools > PSRAM > "OPI PSRAM".
+#define MIC_ENABLED 0
+
+#define MIC_TYPE_PDM 1  // XIAO ESP32-S3 Sense board's built-in mic (no wiring)
+#define MIC_TYPE_I2S 2  // an I2S MEMS mic such as the INMP441
+#define MIC_TYPE MIC_TYPE_PDM
+
+// Sense board built-in mic (fixed by the board).
+#define PIN_MIC_CLK 42
+#define PIN_MIC_DATA 41
+// I2S mic wiring (INMP441: SCK, WS, SD; L/R to GND; VDD to 3V3).
+#define PIN_MIC_BCLK D2
+#define PIN_MIC_WS D3
+#define PIN_MIC_SD D4
+
+#define MIC_GAIN_SHIFT 2       // digital gain: each step doubles the volume. Lower it if speech clips.
+#define MAX_CONVERSATION_S 180 // a conversation recording stops after 3 minutes (5.8 MB of PSRAM)
+#define MAX_VOICE_NOTE_S 30
+#define WALK_AWAY_MS 20000     // stop recording once the other bracelet hasn't been heard for this long
+#define DOUBLE_CLICK_MS 350    // double-click the button = start a voice note
+#define UPLOAD_TIMEOUT_MS 65000

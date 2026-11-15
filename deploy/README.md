@@ -52,6 +52,12 @@ which needs no card. Email goes out through a free **Google Apps Script** in you
 In the LinkedIn developer portal, open your app, then **Auth > Authorized redirect URLs**, and add
 `https://<render address>/auth/linkedin/callback`.
 
+### 5. AI key for conversation notes (2 min, free, no card)
+Sign up at **console.groq.com** (Google sign-in works), open **API Keys > Create API Key**, and copy it.
+On Render open `tro-api` > **Environment**, set `AI_API_KEY` to it, and save (it redeploys). Paste it
+there yourself; don't send it in a chat. Without it, recordings are kept and wait; after adding it,
+`POST /admin/process` (with `X-Admin-Key`) finishes them.
+
 ### Check it
 Open `https://<render address>/health`. It should say `{"ok":true}`. The first visit can take a minute.
 

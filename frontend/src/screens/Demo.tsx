@@ -4,7 +4,7 @@
  * is also the home page, since there is no bracelet to tap.
  */
 
-import { BookOpen, ChevronRight, LayoutList, RotateCcw, SlidersHorizontal, UserRound } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, LayoutList, RotateCcw, SlidersHorizontal, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PREVIEW, storageSet, tokenStore } from "../api";
@@ -42,6 +42,13 @@ const SCREENS: { step: string; title: string; detail: string; to: string; icon: 
     detail: "Everyone you tapped. Needs steps 1 and 2 first.",
     to: `/e/${DEMO_EVENT}`,
     icon: <LayoutList />,
+  },
+  {
+    step: "After a conversation",
+    title: "Conversation notes",
+    detail: "A sample recorded conversation: summary, promises, who said what.",
+    to: "/demo/notes",
+    icon: <FileText />,
   },
 ];
 

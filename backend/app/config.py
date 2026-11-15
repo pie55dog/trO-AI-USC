@@ -75,6 +75,19 @@ class Settings:
     email_relay_url: str = field(default_factory=lambda: _env("EMAIL_RELAY_URL"))
     email_relay_key: str = field(default_factory=lambda: _env("EMAIL_RELAY_KEY"))
 
+    # --- AI (transcription + notes) -------------------------------------
+    # Any OpenAI-compatible API. The default is Groq: its free plan needs no
+    # card and has both Whisper (speech to text) and Llama (summaries).
+    # Get a key at console.groq.com > API Keys and set AI_API_KEY.
+    ai_api_key: str = field(default_factory=lambda: _env("AI_API_KEY", _env("GROQ_API_KEY")))
+    ai_base_url: str = field(default_factory=lambda: _env("AI_BASE_URL", "https://api.groq.com/openai/v1"))
+    ai_transcribe_model: str = field(default_factory=lambda: _env("AI_TRANSCRIBE_MODEL", "whisper-large-v3-turbo"))
+    ai_chat_model: str = field(default_factory=lambda: _env("AI_CHAT_MODEL", "llama-3.3-70b-versatile"))
+
+    @property
+    def ai_configured(self) -> bool:
+        return bool(self.ai_api_key)
+
     @property
     def linkedin_configured(self) -> bool:
         return bool(self.linkedin_client_id and self.linkedin_client_secret)

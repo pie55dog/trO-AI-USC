@@ -165,6 +165,15 @@ class PreferencesOut(BaseModel):
 # --- Onboarding status -----------------------------------------------------
 
 
+class NotesPreview(BaseModel):
+    """The "Conversation notes" line on a connection card."""
+
+    # "not_recorded", "processing", "waiting_for_ai", "ready", "failed" or "expired"
+    conversation: str = "not_recorded"
+    voice_notes: int = 0
+    follow_ups: int = 0
+
+
 class ConnectionOut(BaseModel):
     """Someone the signed-in user tapped bracelets with (event dashboard)."""
 
@@ -182,6 +191,64 @@ class ConnectionOut(BaseModel):
     # Only the fields this person chose to share, e.g. {"email": "...", "linkedin_url": "..."}.
     contact: dict[str, str]
     tapped_at: datetime
+    notes: NotesPreview = NotesPreview()
+
+
+class Commitment(BaseModel):
+    who: str  # "you" or "them"
+    what: str
+    quote: str
+
+
+class TranscriptLine(BaseModel):
+    speaker: str  # "you", "them" or "unsure"
+    text: str
+    start: float
+
+
+class ConversationNotesOut(BaseModel):
+    summary: str
+    topics: list[str]
+    about_them: list[str]
+    commitments: list[Commitment]
+    follow_ups: list[str]
+    # Empty once the summary email has gone out (transcripts are deleted).
+    transcript: list[TranscriptLine]
+    # How speakers were told apart: "two_bracelets", "one_bracelet" or "context".
+    speaker_method: str
+    updated_at: datetime
+
+
+class VoiceNoteOut(BaseModel):
+    id: int
+    category: str  # "person", "idea", "task" or "other"
+    text: str
+    follow_up: Optional[str]
+    # "name", "ai", "user" or ""
+    matched_by: str
+    recorded_at: datetime
+    person_user_id: Optional[int] = None
+    person_name: Optional[str] = None
+
+
+class PersonNotesOut(BaseModel):
+    person: "ConnectionOut"
+    conversation_status: str
+    conversation: Optional[ConversationNotesOut]
+    voice_notes: list[VoiceNoteOut]
+
+
+class EventNotesOut(BaseModel):
+    people: list[PersonNotesOut]
+    other: list[VoiceNoteOut]
+    voice_notes_processing: int
+
+
+class VoiceNoteMove(BaseModel):
+    """PATCH a voice note: move it to someone else or to a category."""
+
+    person_user_id: Optional[int] = None
+    category: Optional[str] = Field(default=None, pattern="^(person|idea|task|other)$")
 
 
 class OnboardingStatus(BaseModel):
@@ -245,6 +312,14 @@ class BraceletUploadOut(BaseModel):
     user_id: Optional[int]
     status: str
     files: int
+
+
+class RecordingOut(BaseModel):
+    id: int
+    kind: str
+    status: str
+    connection_id: Optional[int] = None
+    duration_s: Optional[float] = None
 
 
 # --- Live taps (firmware/trO_bracelet) ---------------------------------------
@@ -326,6 +401,7 @@ class SendSummariesResult(BaseModel):
     skipped_no_email: int
     failed: int
     failures: list[str]
+    recordings_purged: int = 0
 
 
 class TestEmailRequest(BaseModel):
