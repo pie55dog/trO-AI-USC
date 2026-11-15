@@ -318,6 +318,9 @@ const serverApi = {
       headers: { "Content-Type": "audio/wav" },
     });
   },
+  /** A one-time 6-digit code that signs the trO Apple Watch app in (5 minutes, single use). */
+  watchCode: (eventId: number) =>
+    request<{ code: string; expires_at: string }>(`/events/${eventId}/watch-code`, { method: "POST" }),
   /** Email the signed-in person their summary for this event right now. */
   testEmail: (eventId: number) => request<{ sent_to: string; delivered: boolean }>(`/events/${eventId}/test-email`, { method: "POST" }),
 };

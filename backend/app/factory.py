@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import ai
 from .config import Settings, load_settings
 from .db import make_engine
-from .routers import admin, auth, bracelets, events, notes, organizer, users
+from .routers import admin, auth, bracelets, events, notes, organizer, users, watch
 
 
 def create_app(
@@ -67,7 +67,7 @@ def create_app(
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
 
-    for module in (auth, users, events, notes, organizer, bracelets, admin):
+    for module in (auth, users, events, notes, organizer, bracelets, admin, watch):
         app.include_router(module.router)
 
     @app.get("/health", tags=["meta"])

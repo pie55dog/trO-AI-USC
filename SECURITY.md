@@ -40,6 +40,9 @@ to the code and the tests that check it.
 - **Three kinds of caller**, each checked by a FastAPI dependency (`security.py`): attendees (Bearer
   token), organizers (`X-Admin-Key`) and bracelets (`X-Bracelet-Key`). Keys are compared in
   constant time. A missing key disables its endpoints instead of leaving them open.
+- **Apple Watch pairing** uses a 6-digit code from the signed-in phone. The code works once and
+  for 5 minutes, only a keyed hash of it is stored, guesses are rate-limited per address, and the
+  watch keeps its login in the Keychain (`routers/watch.py`, `watch/README.md`).
 - **LinkedIn sign-in** uses a random `state` value stored in a signed, httpOnly cookie to stop
   login CSRF.
 - **Email sign-up** refuses an email that already has an account. Because ownership isn't verified

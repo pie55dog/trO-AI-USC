@@ -68,3 +68,7 @@ BRACELET_UPLOADS = RateLimit("bracelet_upload", per_minute=12, per_hour=200)
 SIGN_UPS = RateLimit("sign_up", per_minute=60, per_hour=1000)
 # Self-serve emails go through a Gmail relay with a daily cap.
 TEST_EMAILS = RateLimit("test_email", per_minute=2, per_hour=10)
+# Watch pairing codes are 6 digits: cap guesses per address so they can't be brute-forced
+# in the 5 minutes a code lives (10 a minute = 50 tries of a million).
+WATCH_CODE_TRIES = RateLimit("watch_code", per_minute=10, per_hour=60)
+WATCH_CODES_ISSUED = RateLimit("watch_code_issue", per_minute=5, per_hour=30)

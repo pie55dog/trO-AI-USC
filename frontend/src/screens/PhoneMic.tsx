@@ -10,7 +10,7 @@
 import { ArrowLeft, Mic, MicOff, Square, Watch } from "lucide-react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { api, tokenStore, type Me } from "../api";
+import { api, ApiError, tokenStore, type Me } from "../api";
 import { Button, Card, cx, DisplayTitle, ErrorNote, Icon, IconBubble, Screen, StatusPill } from "../components/ui";
 import { useEventContext } from "../hooks";
 import { MicCapture } from "../phoneMic/audio";
@@ -148,6 +148,8 @@ export default function PhoneMic({ makeController }: { makeController?: (eventId
 
       {state.clips.length > 0 && <ClipList clips={state.clips} />}
 
+      <WatchPairing eventId={eventId} />
+
       <p className="text-caption text-highlight/50">
         Audio goes only to trO’s server, is deleted as soon as it’s transcribed, and is never kept if either of you said no.
         Each new tap ends the last conversation; recordings stop after 3 minutes.
@@ -248,5 +250,61 @@ function ClipList({ clips }: { clips: Clip[] }) {
         ))}
       </Card>
     </section>
+  );
+}
+
+/** Sign the trO Apple Watch app in: show a one-time code to type on the watch. */
+function WatchPairing({ eventId }: { eventId: number }) {
+  const [code, setCode] = useState<{ code: string; expires: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!code) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [code]);
+
+  const get = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const c = await api.watchCode(eventId);
+      setCode({ code: c.code, expires: Date.parse(c.expires_at) });
+      setNow(Date.now());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn’t get a code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const left = code ? Math.max(0, Math.round((code.expires - now) / 1000)) : 0;
+  return (
+    <Card className="flex flex-col gap-3 p-5">
+      <div className="flex items-start gap-3">
+        <IconBubble>
+          <Icon icon={Watch} size={20} />
+        </IconBubble>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-label font-medium text-highlight">Record with your Apple Watch instead</p>
+          <p className="text-caption text-highlight/70">
+            Open trO on your watch and type this code. It works once and only for 5 minutes.
+          </p>
+        </div>
+      </div>
+      {code && left > 0 ? (
+        <p className="text-center font-display text-display tracking-[0.2em] text-yellow tabular-nums" aria-label={`Code ${code.code.split("").join(" ")}`}>
+          {code.code}
+          <span className="block font-sans text-caption tracking-normal text-highlight/60">Expires in {clock(left)}</span>
+        </p>
+      ) : (
+        <Button type="button" variant="soft" onClick={() => void get()} loading={loading} arrow={false}>
+          {code ? "Get a new code" : "Get watch code"}
+        </Button>
+      )}
+      {error && <ErrorNote>{error}</ErrorNote>}
+    </Card>
   );
 }

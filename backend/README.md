@@ -58,6 +58,8 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | attendee | `GET /events/{id}/bracelet` | Which bracelet I have |
 | attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only, `notes` preview, `connection_id`, `both_consented`) |
 | attendee | `POST /events/{id}/recordings` | Phone mic (until bracelets have mics): one 16 kHz WAV clip as the raw body (`?kind=conversation\|voice_note&connection_id&started_at`). Same consent check and AI pipeline as bracelet clips. WAV only, ≤200 s (conversation) / 40 s (voice note), 3 clips per conversation, 12 uploads a minute per person |
+| attendee | `POST /events/{id}/watch-code` | One-time 6-digit code (5 min) to sign the Apple Watch app in |
+| watch | `POST /auth/watch` | `{"code"}` → login token, event id/name. 401 for any wrong/used/expired code; 10 tries a minute per address |
 | attendee | `GET /events/{id}/notes` | All my notes for the event: per person, plus voice notes sorted as ideas / to-dos |
 | attendee | `GET /events/{id}/notes/{user_id}` | My notes on one person: AI summary, promises, follow-ups, my voice notes, who-said-what transcript |
 | attendee | `PATCH /events/{id}/voice-notes/{note_id}` | Move a voice note to another person (`person_user_id`) or category (`idea`/`task`/`other`) |

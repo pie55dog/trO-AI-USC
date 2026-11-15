@@ -31,6 +31,7 @@ from ..models import (
     Star,
     TapReport,
     User,
+    WatchPairing,
     utcnow,
 )
 from ..schemas import (
@@ -252,6 +253,7 @@ def delete_me(
         (BraceletAssignment, BraceletAssignment.user_id),
         (EmailLog, EmailLog.user_id),
         (Preferences, Preferences.user_id),
+        (WatchPairing, WatchPairing.user_id),
     ):
         for row in session.exec(select(model).where(column == user.id)).all():
             session.delete(row)
