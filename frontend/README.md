@@ -2,8 +2,8 @@
 
 The mobile web app an attendee opens after tapping their bracelet. It's built
 from the refined Figma frames (393px, grayscale, no branding): **Welcome to
-event** (profile), **Set your preferences** (explicit recording consent),
-**This is trO** (tutorial, shown first), and the **event** dashboard.
+event** (step 1, profile), **Set your preferences** (step 2, explicit
+recording consent), **This is trO** (tutorial), and the **event** dashboard.
 
 React + TypeScript + Vite + Tailwind, with Lucide icons.
 
@@ -49,15 +49,14 @@ Every push to `main` that touches `frontend/` deploys the app to
 
 ## Flow
 
-1. **Tutorial** (`/e/:id/tutorial`). The first screen after a bracelet tap. The gray circles are placeholders for
-   the 3D animations. Each has a `data-animation` attribute (`tap-a`, `tap-b`, `recording-light`, `voice-note`)
-   to swap it out. New people continue to Welcome; the dashboard links back here later.
-2. **Welcome** (`/e/:id/welcome`). The user enters the email the summary goes to, then their profile: name, school,
+1. **Welcome** (`/e/:id/welcome`). The user enters the email the summary goes to, then their profile: name, school,
    major, an optional bio (up to 20 words), an optional position, interests, links and a photo. **Continue**
    creates the account from name and email. The form is saved as a draft, so a reload never loses what the user
    typed.
-3. **Preferences** (`/e/:id/preferences`). Recording consent and recommendations both start unanswered. Finish
-   is disabled until both are picked. Finishing links the tapped bracelet to the attendee and opens the dashboard.
+2. **Preferences** (`/e/:id/preferences`). Recording consent and recommendations both start unanswered. Finish
+   is disabled until both are picked. Finishing links the tapped bracelet to the attendee.
+3. **Tutorial** (`/e/:id/tutorial`). The gray circles are placeholders for the 3D animations. Each has a
+   `data-animation` attribute (`tap-a`, `tap-b`, `recording-light`, `voice-note`) to swap it out.
 4. **Dashboard** (`/e/:id`). The user's connections, with only the contact info each person chose to share.
    It also says whether each conversation was recorded (both people consented) or contact only.
 

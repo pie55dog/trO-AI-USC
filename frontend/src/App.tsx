@@ -1,10 +1,10 @@
 /**
  * Routes. A bracelet tap opens /e/<eventId>?b=<braceletId>.
  *
- *   /e/:eventId              event dashboard (sends new people to /tutorial)
- *   /e/:eventId/tutorial     step 1: how trO works
- *   /e/:eventId/welcome      step 2: email + profile
- *   /e/:eventId/preferences  step 3: recording consent + recommendations
+ *   /e/:eventId              event dashboard (sends new people to /welcome)
+ *   /e/:eventId/welcome      step 1: email + profile
+ *   /e/:eventId/preferences  step 2: recording consent + recommendations
+ *   /e/:eventId/tutorial     how trO works
  *   /demo                    demo hub linking every screen (home page on preview builds)
  *   /auth/callback           LinkedIn sign-in returns here
  */

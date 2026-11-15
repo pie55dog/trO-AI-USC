@@ -10,9 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokenStore, type Connection, type Me } from "../api";
 import { wordCount } from "../hooks";
 import AuthCallback from "../screens/AuthCallback";
-import EventHome, { ConnectionCard, TestEmail } from "../screens/EventHome";
+import { ConnectionCard, TestEmail } from "../screens/EventHome";
 import Preferences from "../screens/Preferences";
-import Tutorial from "../screens/Tutorial";
 import Welcome, { validate } from "../screens/Welcome";
 import { emptyDraft } from "../session";
 
@@ -228,31 +227,3 @@ describe("test email button", () => {
   });
 });
 
-
-describe("screen order: tutorial, then profile, then preferences", () => {
-  /** Routes that show their own name, so a redirect is visible. */
-  function renderFlow(path: string) {
-    return render(
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/e/:eventId" element={<EventHome />} />
-          <Route path="/e/:eventId/tutorial" element={<Tutorial />} />
-          <Route path="/e/:eventId/welcome" element={<p>welcome screen</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-  }
-
-  it("sends a new person who taps a bracelet to the tutorial first", async () => {
-    mockApi({});
-    renderFlow("/e/1?b=a4cf0042");
-    expect(await screen.findByText("This is trO")).toBeInTheDocument();
-  });
-
-  it("the tutorial continues to the profile for a new person", async () => {
-    mockApi({});
-    renderFlow("/e/1/tutorial");
-    await userEvent.click(screen.getByRole("button", { name: /got it/i }));
-    expect(await screen.findByText("welcome screen")).toBeInTheDocument();
-  });
-});

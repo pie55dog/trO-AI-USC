@@ -177,8 +177,7 @@ export default function EventHome() {
   useEffect(() => void load(), [load]);
 
   if (!eventId) return <Navigate to="/" replace />;
-  // New people start with how trO works; someone mid-setup goes straight to the profile.
-  if (needsOnboarding) return <Navigate to={tokenStore.get() ? `/e/${eventId}/welcome` : `/e/${eventId}/tutorial`} replace />;
+  if (needsOnboarding) return <Navigate to={`/e/${eventId}/welcome`} replace />;
   if (error)
     return (
       <Screen className="gap-4">
