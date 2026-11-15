@@ -48,7 +48,7 @@ CurrentUser = Annotated[User, Depends(current_user)]
 DB = Annotated[Session, Depends(get_session)]
 
 # Profile fields the sign-up spec marks as required (section 5).
-REQUIRED_PROFILE_FIELDS = ("name", "email", "school", "major", "bio", "interests")
+REQUIRED_PROFILE_FIELDS = ("name", "email", "school", "major", "interests")  # bio is optional
 
 
 # --- Helpers ---------------------------------------------------------------

@@ -16,6 +16,13 @@ const DEMO_EVENT = 1;
 
 const SCREENS: { step: string; title: string; detail: string; to: string; icon: ReactNode }[] = [
   {
+    step: "Start",
+    title: "How it works",
+    detail: "How tapping, recording and voice notes work.",
+    to: `/e/${DEMO_EVENT}/tutorial`,
+    icon: <BookOpen />,
+  },
+  {
     step: "Step 1",
     title: "Welcome",
     detail: "Summary email and the profile your connections get.",
@@ -30,13 +37,6 @@ const SCREENS: { step: string; title: string; detail: string; to: string; icon: 
     icon: <SlidersHorizontal />,
   },
   {
-    step: "Step 3",
-    title: "This is trO",
-    detail: "How tapping, recording and voice notes work.",
-    to: `/e/${DEMO_EVENT}/tutorial`,
-    icon: <BookOpen />,
-  },
-  {
     step: "During the event",
     title: "Your connections",
     detail: "Everyone you tapped. Needs steps 1 and 2 first.",
@@ -49,7 +49,7 @@ export default function Demo() {
   const navigate = useNavigate();
 
   const startOver = () => {
-    // Sign out and forget everything this phone saved, then begin at step 1.
+    // Sign out and forget everything this phone saved, then begin at the start.
     tokenStore.set(null);
     for (const key of ["tro.preview", "tro.profileDraft", "tro.returnTo", `tro.bracelet.${DEMO_EVENT}`]) storageSet(key, null);
     lastEventStore.set(DEMO_EVENT);
@@ -61,7 +61,7 @@ export default function Demo() {
       <header className="flex flex-col gap-2">
         <h1 className="text-display font-normal italic text-ink">trO demo</h1>
         <p className="text-body text-ink-muted">
-          Open any screen of the flow. In real use, tapping the bracelet opens step 1.
+          Open any screen of the flow. In real use, tapping the bracelet opens how it works.
           {PREVIEW && " This preview has no server, so what you enter stays on this phone."}
         </p>
       </header>

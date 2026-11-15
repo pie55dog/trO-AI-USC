@@ -13,7 +13,7 @@ def test_onboarding_completes_after_profile_and_consent(client, make_user):
     me = client.get("/users/me", headers=headers).json()
     assert me["onboarding"] == {
         "complete": False,
-        "missing": ["school", "major", "bio", "interests", "recording_consent", "recommendations_opt_in"],
+        "missing": ["school", "major", "interests", "recording_consent", "recommendations_opt_in"],
     }
 
     client.patch("/users/me", json=COMPLETE_PROFILE, headers=headers)

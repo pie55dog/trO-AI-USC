@@ -8,7 +8,7 @@ describe("preview mode (no backend)", () => {
   it("runs the onboarding flow on the phone with the backend's rules", async () => {
     const { token, me } = await previewApi.signUp("Tommy Trojan", "tommy@usc.edu");
     tokenStore.set(token);
-    expect(me.onboarding.missing).toEqual(["school", "major", "bio", "interests", "recording_consent", "recommendations_opt_in"]);
+    expect(me.onboarding.missing).toEqual(["school", "major", "interests", "recording_consent", "recommendations_opt_in"]);
 
     // Can't take a bracelet before onboarding is complete.
     await expect(previewApi.claimBracelet(1, "ABC123")).rejects.toMatchObject({ status: 409 });

@@ -2,18 +2,15 @@
  * Step 1 of 2: "Welcome to event." Summary email + profile.
  * Figma: "Refined / Welcome to event" (node 27:2).
  *
- * Works two ways:
- *  - Pull from LinkedIn: we send the phone to LinkedIn, it comes back signed
- *    in, and name, email and photo fill any empty fields.
- *  - Without LinkedIn: "Continue" creates the account from name + email.
- * What the user typed is saved as a draft, so the LinkedIn round trip never
- * loses it.
+ * "Continue" creates the account from name + email. If the phone already has
+ * a token (signed in earlier), the saved profile fills any empty fields.
+ * What the user typed is saved as a draft, so a reload never loses it.
  */
 
 import { Camera, Mail, Plus, Watch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { api, ApiError, PREVIEW, tokenStore, type Me } from "../api";
+import { useNavigate } from "react-router-dom";
+import { api, ApiError, tokenStore, type Me } from "../api";
 import {
   Chip,
   DisplayTitle,
@@ -28,7 +25,7 @@ import {
   StickyCta,
 } from "../components/ui";
 import { useEventContext, wordCount } from "../hooks";
-import { draftStore, emptyDraft, returnStore, type ProfileDraft } from "../session";
+import { draftStore, emptyDraft, type ProfileDraft } from "../session";
 
 export const INTEREST_OPTIONS = ["AI & ML", "Startups", "Design", "Finance", "Research", "Consulting"];
 const BIO_MAX = 20;
@@ -44,8 +41,8 @@ export function validate(d: ProfileDraft): Errors {
   if (!d.school.trim()) e.school = "Add your school.";
   if (!d.major.trim()) e.major = "Add your major.";
   const words = wordCount(d.bio);
-  if (words === 0) e.bio = "Add a short bio.";
-  else if (words > BIO_MAX) e.bio = `Keep it to ${BIO_MAX} words or fewer.`;
+  // Bio is optional: no minimum, just a cap so it fits on a card.
+  if (words > BIO_MAX) e.bio = `Keep it to ${BIO_MAX} words or fewer.`;
   if (d.interests.length === 0) e.interests = "Pick at least one.";
   return e;
 }
@@ -71,7 +68,6 @@ function mergeServer(draft: ProfileDraft, me: Me): ProfileDraft {
 
 export default function Welcome() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { eventId, braceletId, eventName } = useEventContext();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -87,7 +83,7 @@ export default function Welcome() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load the account if we have a token (e.g. just back from LinkedIn).
+  // Load the account if we have a token (e.g. signed in earlier).
   useEffect(() => {
     if (!tokenStore.get()) {
       setLoading(false);
@@ -135,13 +131,6 @@ export default function Welcome() {
       set("interests", [...draft.interests, value]);
     }
     setOtherInterest(null);
-  };
-
-  const pullFromLinkedIn = () => {
-    draftStore.set(draft);
-    // Router path, without the deploy base path, so navigate() can use it.
-    returnStore.set(location.pathname);
-    window.location.assign(api.linkedinLoginUrl());
   };
 
   const onPickPhoto = async (file: File | undefined) => {
@@ -200,7 +189,7 @@ export default function Welcome() {
       navigate(`/e/${eventId}/preferences`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setErrors((e) => ({ ...e, email: "This email already has an account. Use another, or pull from LinkedIn." }));
+        setErrors((e) => ({ ...e, email: "This email already has an account. Use another one." }));
       } else {
         setSubmitError(err instanceof ApiError ? err.message : "Couldn't save your profile.");
       }
@@ -285,7 +274,7 @@ export default function Welcome() {
           </div>
           <Field
             multiline
-            label={`Bio · up to ${BIO_MAX} words`}
+            label={`Bio (optional) · up to ${BIO_MAX} words`}
             placeholder="Junior building tools for student orgs. Into AI and hackathons."
             value={draft.bio}
             onChange={(e) => set("bio", e.target.value)}
@@ -383,12 +372,6 @@ export default function Welcome() {
               <SecondaryButton type="button" onClick={() => fileInput.current?.click()}>
                 {shownPhoto ? "Change photo" : "Upload photo"}
               </SecondaryButton>
-              {/* LinkedIn sign-in needs the backend, so preview mode hides it. */}
-              {!signedIn && !PREVIEW && (
-                <SecondaryButton type="button" onClick={pullFromLinkedIn}>
-                  Pull from LinkedIn
-                </SecondaryButton>
-              )}
             </div>
             <input
               ref={fileInput}

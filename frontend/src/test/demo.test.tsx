@@ -18,7 +18,7 @@ describe("demo hub", () => {
   it("links every screen of the flow", () => {
     render(<MemoryRouter><Demo /></MemoryRouter>);
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/e/1/welcome", "/e/1/preferences", "/e/1/tutorial", "/e/1"]);
+    expect(hrefs).toEqual(["/e/1/tutorial", "/e/1/welcome", "/e/1/preferences", "/e/1"]);
   });
 
   it("start over signs out, clears saved data and opens step 1", async () => {
@@ -34,7 +34,7 @@ describe("demo hub", () => {
       </MemoryRouter>,
     );
     await userEvent.click(screen.getByRole("button", { name: /start over/i }));
-    expect(screen.getByTestId("where").textContent).toBe("/e/1/welcome");
+    expect(screen.getByTestId("where").textContent).toBe("/e/1/tutorial");
     expect(tokenStore.get()).toBeNull();
     expect(localStorage.getItem("tro.preview")).toBeNull();
     expect(localStorage.getItem("tro.profileDraft")).toBeNull();

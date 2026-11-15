@@ -10,8 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokenStore, type Connection, type Me } from "../api";
 import { wordCount } from "../hooks";
 import AuthCallback from "../screens/AuthCallback";
-import { ConnectionCard, TestEmail } from "../screens/EventHome";
+import EventHome, { ConnectionCard, TestEmail } from "../screens/EventHome";
 import Preferences from "../screens/Preferences";
+import Tutorial from "../screens/Tutorial";
 import Welcome, { validate } from "../screens/Welcome";
 import { emptyDraft } from "../session";
 
@@ -68,15 +69,48 @@ describe("helpers", () => {
 
   it("validates the profile like the backend's onboarding rules", () => {
     const errors = validate(emptyDraft);
-    expect(Object.keys(errors).sort()).toEqual(["bio", "email", "interests", "major", "name", "school"]);
+    expect(Object.keys(errors).sort()).toEqual(["email", "interests", "major", "name", "school"]);
     const ok = validate({
       ...emptyDraft, name: "T", email: "t@usc.edu", school: "V", major: "CS",
       bio: "one two three four five", interests: ["AI & ML"],
     });
     expect(ok).toEqual({});
-    expect(validate({ ...emptyDraft, bio: "Short." }).bio).toBeUndefined();
-    expect(validate({ ...emptyDraft, bio: "  " }).bio).toBeDefined();
+    expect(validate({ ...emptyDraft, bio: "" }).bio).toBeUndefined(); // bio is optional
+    expect(validate({ ...emptyDraft, bio: "short" }).bio).toBeUndefined(); // no minimum
     expect(validate({ ...emptyDraft, bio: Array(21).fill("w").join(" ") }).bio).toBeDefined();
+  });
+});
+
+describe("start of the flow", () => {
+  /** Shows where a screen navigated to, so a test can check the path. */
+  function renderFlow(path: string) {
+    const Where = () => <p data-testid="where">{window.location.pathname}</p>;
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/e/:eventId" element={<EventHome />} />
+          <Route path="/e/:eventId/tutorial" element={<Tutorial />} />
+          <Route path="/e/:eventId/welcome" element={<p>welcome screen</p>} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it("opens how it works for someone new, then goes to step 1", async () => {
+    mockApi({ "GET /events/1": { id: 1, name: "Demo night" } });
+    renderFlow("/e/1?b=TEST01");
+    expect(await screen.findByText(/how it works/i)).toBeTruthy();
+    expect(screen.queryByText("This is trO")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /got it/i }));
+    expect(await screen.findByText("welcome screen")).toBeTruthy();
+  });
+
+  it("sends someone part way through setup to step 1, not back to how it works", async () => {
+    tokenStore.set("t");
+    mockApi({ "GET /events/1": { id: 1, name: "Demo night" }, "GET /users/me": me({}, false) });
+    renderFlow("/e/1");
+    expect(await screen.findByText("welcome screen")).toBeTruthy();
   });
 });
 

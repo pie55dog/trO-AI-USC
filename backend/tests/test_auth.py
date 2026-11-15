@@ -39,8 +39,8 @@ def test_new_user_gets_name_email_and_photo_from_linkedin(client, db):
     assert me["profile"]["name"] == "Tommy Trojan"
     assert me["profile"]["email"] == "tommy@usc.edu"  # lowercased
     assert me["profile"]["photo_url"].startswith("/media/photos/")
-    # Bio isn't available from LinkedIn, so onboarding still asks for it.
-    assert "bio" in me["onboarding"]["missing"]
+    # Bio is optional, so it never blocks onboarding.
+    assert "bio" not in me["onboarding"]["missing"]
     assert "recording_consent" in me["onboarding"]["missing"]
 
     # The photo was copied to our storage and is served back byte-for-byte.
