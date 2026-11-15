@@ -12,7 +12,7 @@
 
 import { Camera, Mail, Plus, Watch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Me } from "../api";
 import {
   Chip,
@@ -71,6 +71,7 @@ function mergeServer(draft: ProfileDraft, me: Me): ProfileDraft {
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { eventId, braceletId, eventName } = useEventContext();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -138,7 +139,8 @@ export default function Welcome() {
 
   const pullFromLinkedIn = () => {
     draftStore.set(draft);
-    returnStore.set(window.location.pathname);
+    // Router path, without the deploy base path, so navigate() can use it.
+    returnStore.set(location.pathname);
     window.location.assign(api.linkedinLoginUrl());
   };
 

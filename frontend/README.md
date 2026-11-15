@@ -29,6 +29,20 @@ To try it on a phone, put the phone on the same Wi-Fi or hotspot as your laptop.
 
 Tests: `npm test`. Production build: `npm run build`.
 
+## Test on a phone (GitHub Pages)
+
+Every push to `main` that touches `frontend/` deploys the app to
+`https://pie55dog.github.io/trO-AI-USC/` (workflow: `.github/workflows/pages.yml`).
+
+- One-time setup: repo Settings > Pages > Source: **GitHub Actions**.
+- Pages only hosts static files, so the backend has to run somewhere else.
+  Set the repo variable `VITE_API_URL` (Settings > Secrets and variables >
+  Actions > Variables) to its **HTTPS** URL and re-run the workflow. A laptop
+  backend works through a tunnel such as `cloudflared tunnel --url http://localhost:8000`.
+- On that backend, set `CORS_ORIGINS=https://pie55dog.github.io` and
+  `FRONTEND_URL=https://pie55dog.github.io/trO-AI-USC`.
+- A tap link looks like `https://pie55dog.github.io/trO-AI-USC/e/1?b=ABC123`.
+
 ## Flow
 
 1. **Welcome** (`/e/:id/welcome`). The user enters the email the summary goes to, then their profile: name, school,
