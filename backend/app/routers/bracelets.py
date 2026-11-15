@@ -3,7 +3,25 @@
     GET  /bracelets/{id}/status   has anyone claimed this bracelet yet? (polled at boot)
     POST /bracelets/tap           live tap: "I'm touching that bracelet" (see app/taps.py)
     POST /bracelets/star          star the wearer's latest connection (button click)
-    POST /bracelets/uploads       end-of-event upload (store only, for the mic build)
+    POST /bracelets/recordings    one audio clip: a conversation or a voice note (mic build)
+    POST /bracelets/uploads       end-of-event upload (store only, anything else)
+
+Recording upload (the mic build, see firmware/README.md):
+
+    POST /bracelets/recordings?device=TRO-1A2B3C&kind=conversation&connection_id=42&started_at=1763190000123
+    Content-Type: audio/wav
+    <body: the WAV file, 16 kHz 16-bit mono>
+
+    kind           "conversation" (needs connection_id: the "session" from the
+                   tap response) or "voice_note"
+    started_at     optional, Unix time in ms from the bracelet's clock (NTP);
+                   lines up the two bracelets' clips of one conversation
+    -> 201 {"id": 7, "status": "received"}
+       403 one of the two people hasn't agreed to recording (audio discarded)
+       409 bracelet not linked;  413 over 24 MB;  422 bad parameters
+
+The audio is transcribed and turned into notes in the background (see
+app/recordings.py).
 
 Upload details:
 
@@ -26,15 +44,18 @@ from __future__ import annotations
 import json
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlmodel import Session, select
 
-from .. import storage, taps
+from .. import recordings, storage, taps
 from ..bracelets import normalize_bracelet_id
 from ..config import Settings
 from ..db import get_session
-from ..models import BraceletAssignment, BraceletUpload, Event, Preferences, User
-from ..schemas import BraceletStatusOut, BraceletUploadOut, StarIn, StarOut, TapIn, TapOut
+from ..models import BraceletAssignment, BraceletUpload, Connection, Event, Preferences, User
+from ..schemas import BraceletStatusOut, BraceletUploadOut, RecordingOut, StarIn, StarOut, TapIn, TapOut
 from ..security import get_settings, require_bracelet
 
 router = APIRouter(prefix="/bracelets", tags=["bracelets"], dependencies=[Depends(require_bracelet)])
@@ -102,6 +123,96 @@ def star(body: StarIn, session: Annotated[Session, Depends(get_session)]) -> Sta
         return StarOut(status="no_connection")
     conn, other = found
     return StarOut(status="starred", connection_id=conn.id, peer_name=other.name if other else None)
+
+
+def _save_clip(
+    session: Session,
+    settings: Settings,
+    device: str,
+    kind: str,
+    connection_id: Optional[int],
+    started_at: Optional[int],
+    event_id: Optional[int],
+    data: bytes,
+    content_type: str,
+) -> RecordingOut:
+    try:
+        bid = normalize_bracelet_id(device)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    if kind not in recordings.KINDS:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "kind must be conversation or voice_note")
+    assignment = taps.current_assignment(session, bid, event_id)
+    if assignment is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, NOT_LINKED)
+
+    conn = None
+    if kind == "conversation":
+        if connection_id is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "connection_id is required for a conversation")
+        conn = session.get(Connection, connection_id)
+        if (
+            conn is None
+            or conn.event_id != assignment.event_id
+            or assignment.user_id not in (conn.user_a_id, conn.user_b_id)
+        ):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "that connection isn't this wearer's")
+
+    started = None
+    if started_at:
+        # Ignore a clock that is obviously unset (an ESP32 without NTP starts at 1970).
+        if started_at > 1_600_000_000_000:
+            started = datetime.fromtimestamp(started_at / 1000, tz=timezone.utc)
+    try:
+        rec = recordings.save_recording(
+            session,
+            settings,
+            kind=kind,
+            event_id=assignment.event_id,
+            user_id=assignment.user_id,
+            bracelet_id=bid,
+            data=data,
+            content_type=content_type,
+            connection=conn,
+            started_at=started,
+        )
+    except recordings.ConsentError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    return RecordingOut(id=rec.id, kind=rec.kind, status=rec.status, connection_id=rec.connection_id, duration_s=rec.duration_s)
+
+
+@router.post("/recordings", response_model=RecordingOut, status_code=status.HTTP_201_CREATED)
+async def upload_recording(
+    request: Request,
+    background: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    device: Annotated[str, Query(max_length=64)],
+    kind: Annotated[str, Query()],
+    connection_id: Annotated[Optional[int], Query()] = None,
+    started_at: Annotated[Optional[int], Query(description="Unix ms from the bracelet's clock")] = None,
+    event_id: Annotated[Optional[int], Query()] = None,
+) -> RecordingOut:
+    """One audio clip from a bracelet, sent as the raw request body.
+
+    Raw bytes (not a multipart form) because that's simplest to send from an
+    ESP32 straight out of its memory. Transcription and notes happen after
+    the response, so the bracelet isn't kept waiting.
+    """
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > recordings.MAX_RECORDING_BYTES:
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "recordings must be under 24 MB")
+    content_type = (request.headers.get("content-type") or "audio/wav").split(";")[0].strip()
+    out = await run_in_threadpool(
+        _save_clip, session, settings, device, kind, connection_id, started_at, event_id, bytes(body), content_type
+    )
+    app = request.app
+    background.add_task(recordings.run_in_background, app.state.engine, settings, app.state.ai_factory, out.id)
+    return out
 
 
 # A plain ``def`` (not async) so FastAPI runs it in a worker thread: the
