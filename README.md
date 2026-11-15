@@ -15,6 +15,8 @@ Run everything on a laptop and open it from a phone on the same Wi-Fi:
 ```
 
 The first run creates `backend/.env`. Emails are saved to `backend/media/outbox`
-until you fill in the `SMTP_*` lines there (a Gmail app password works) and set
-`EMAIL_BACKEND=smtp`, then restart the script.
+until you run `./scripts/setup-email.sh`. It asks for the address you want trO to
+send from and an app password (typed in Terminal, never into a chat), tests the
+login, saves it to `backend/.env`, and sends a confirmation email. Then restart
+the server.
 
