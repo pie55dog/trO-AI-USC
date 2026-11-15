@@ -56,7 +56,11 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | attendee | `DELETE /users/me` | Delete account, photo, and any bracelet audio |
 | attendee | `POST /events/{id}/bracelet` | Claim a bracelet by its ESP32 id (needs onboarding complete) |
 | attendee | `GET /events/{id}/bracelet` | Which bracelet I have |
-| attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only) |
+| attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only, `notes` preview) |
+| attendee | `GET /events/{id}/notes` | All my notes for the event: per person, plus voice notes sorted as ideas / to-dos |
+| attendee | `GET /events/{id}/notes/{user_id}` | My notes on one person: AI summary, promises, follow-ups, my voice notes, who-said-what transcript |
+| attendee | `PATCH /events/{id}/voice-notes/{note_id}` | Move a voice note to another person (`person_user_id`) or category (`idea`/`task`/`other`) |
+| organizer | `POST /admin/process` | Finish recordings still waiting (e.g. right after adding `AI_API_KEY`) |
 | anyone | `GET /events`, `GET /events/{id}` | List / view events |
 | organizer | `POST /events` | Create an event |
 | attendee | `POST /events/{id}/test-email` | Email me my summary for this event right now (for demos; doesn't count as the post-event email) |
@@ -65,6 +69,7 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 | bracelet | `GET /bracelets/{id}/status` | Has anyone claimed this bracelet yet? (`linked`, `event_id`, `first_name`). Polled at boot |
 | bracelet | `POST /bracelets/tap` | Live tap: `{"device", "peer", "rssi"}`. Answers `waiting` until the other bracelet reports the same tap, then `paired` with `peer_name` and `match_pct`. 409 = not linked. `peer: ""` is a manual (button) tap |
 | bracelet | `POST /bracelets/star` | `{"device"}`: star the wearer's latest connection (shown on the dashboard and in the email) |
+| bracelet | `POST /bracelets/recordings` | Mic build: one audio clip as the raw body (`?device&kind=conversation\|voice_note&connection_id&started_at`). 403 unless both people consent. Transcribed and turned into notes in the background |
 | bracelet | `POST /bracelets/uploads` | End-of-event upload: `bracelet_id`, `event_id` (required once a bracelet is reused), `payload` (JSON text), `files` |
 
 Auth: attendees send `Authorization: Bearer <token>` (from the sign-in
@@ -91,16 +96,30 @@ Each attendee of an event (anyone with a bracelet assigned for it) gets one
 email listing the people they connected with, showing only the contact fields
 each person chose to share. Every send is logged so nobody gets duplicates.
 
-## Not built yet (on purpose)
+## Conversation notes (the AI)
 
-- **Processing end-of-event uploads.** Taps are live now (`app/taps.py`,
-  firmware in `../firmware`), so connections no longer depend on uploads.
-  `POST /bracelets/uploads` still just stores what a bracelet sends, for the
-  future mic build's audio; `app/bracelets.py:process_upload` is a placeholder.
-- **AI**: transcription, conversation summaries, voice-note sorting, follow-up
-  suggestions. The email template already has slots for them
-  (`ConnectionEntry.summary`, `notes`, `follow_ups` in `app/mailer.py`).
-- Deleting audio after the email is sent (comes with processing).
+Bracelet audio becomes notes in `app/recordings.py`:
+
+1. **Consent.** A conversation clip is only accepted if *both* people currently say yes to
+   recording (checked again on upload, so turning it off mid-event works). Otherwise 403 and
+   nothing is kept.
+2. **Speech to text.** Whisper (`whisper-large-v3-turbo` on Groq) transcribes one of the two
+   bracelets' clips into timed segments.
+3. **Who said what** (`app/speakers.py`). Each person is ~10-15 dB louder on their own bracelet.
+   We line the two clips up by cross-correlating their loudness, then credit each segment to
+   whoever's bracelet heard it louder. With one clip, the loud voice is the wearer. Anything
+   unclear goes to the chat model as "?" to decide from context; it can't overrule a measured line.
+4. **Per-person notes** (`app/notes_ai.py`). One chat call writes both people's notes (summary,
+   topics, facts about the other person, promises, follow-ups). Every promise must quote the
+   transcript word for word and is re-credited to whoever actually said that line, or it's dropped.
+5. **Voice notes** are transcribed and sorted to a person, idea, task or other. Saying someone's
+   name beats the model's guess; the model can only pick people you actually tapped.
+6. **Privacy.** Audio is deleted right after it's transcribed and measured. Transcripts and loudness
+   data are deleted once the summary emails go out. The notes stay.
+
+Set `AI_API_KEY` to a free Groq key (console.groq.com, no card). Without it, recordings are stored
+with status `waiting_for_ai` and processed later by `POST /admin/process` (also run automatically
+before `send-summaries`). `AI_BASE_URL` / `AI_*_MODEL` switch to any OpenAI-compatible service.
 
 ## Layout
 
@@ -117,6 +136,11 @@ app/
   mailer.py       email backends and the post-event email template
   post_event.py   sends an event's emails
   bracelets.py    bracelet id format + upload processing placeholder
+  recordings.py   audio in -> transcript -> notes; consent check, retries, deletion
+  speakers.py     who said what, from the two bracelets' loudness
+  notes_ai.py     the prompts + checks for conversation notes and voice-note sorting
+  ai.py           Groq / OpenAI-compatible client (Whisper + chat)
+  notes.py        reading notes back for the app and the email
   taps.py         live taps: pairs two bracelets' reports into a Connection, stars, match %
   routers/        HTTP endpoints, one file per area
 tests/            pytest suite

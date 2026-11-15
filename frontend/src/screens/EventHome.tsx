@@ -4,15 +4,15 @@
  *
  * Connections come from GET /events/{id}/connections. Two bracelets pair
  * live (POST /bracelets/tap), so the list refreshes every few seconds while
- * the page is open and a new tap pops in without reloading. Conversation
- * notes from the Figma card need the AI step, so they aren't shown with
- * made-up values.
+ * the page is open and a new tap pops in without reloading. The card's
+ * "Conversation notes" row shows what trO has so far (AI summary, voice
+ * notes, follow-ups) and opens the notes screen (PersonNotes.tsx).
  */
 
 import { ChevronRight, Copy, FileText, Globe, Mail, Mic, Play, Star, Watch } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { api, ApiError, tokenStore, type Connection, type Me } from "../api";
+import { api, ApiError, tokenStore, type Connection, type Me, type VoiceNote } from "../api";
 import {
   Button,
   buttonClass,
@@ -36,11 +36,11 @@ type Tab = "connected" | "recommendations";
 // How often the dashboard re-checks for new taps.
 const REFRESH_MS = 4000;
 
-function Badge({ tone, icon, children }: { tone: "yellow" | "glass"; icon?: ReactNode; children: ReactNode }) {
+export function Badge({ tone, icon, children }: { tone: "yellow" | "glass"; icon?: ReactNode; children: ReactNode }) {
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1 rounded-full py-1 pr-2.5 pl-2 text-label-s font-semibold",
+        "inline-flex shrink-0 items-center gap-1 rounded-full py-1 pr-2.5 pl-2 text-label-s font-semibold",
         tone === "yellow" ? "bg-yellow text-dark" : "bg-white/30 text-highlight",
       )}
     >
@@ -83,7 +83,20 @@ function instagramUrl(value: string) {
   return value.startsWith("http") ? value : `https://instagram.com/${value.replace(/^@/, "")}`;
 }
 
-export function ConnectionCard({ person }: { person: Connection }) {
+/** The caption under "Conversation notes", e.g. "AI summary · 1 voice note · follow-up idea" (Figma). */
+export function notesCaption(person: Connection): string {
+  const n = person.notes;
+  if (!n) return person.recorded ? "AI summary · voice notes · in your email" : "Voice notes · in your email";
+  const parts: string[] = [];
+  if (n.conversation === "ready") parts.push("AI summary");
+  else if (n.conversation === "processing" || n.conversation === "waiting_for_ai") parts.push("Writing your notes…");
+  if (n.voice_notes) parts.push(`${n.voice_notes} voice note${n.voice_notes === 1 ? "" : "s"}`);
+  if (n.follow_ups) parts.push(n.follow_ups === 1 ? "follow-up idea" : `${n.follow_ups} follow-up ideas`);
+  if (parts.length) return parts.join(" · ");
+  return person.recorded ? "AI summary after your conversation" : "Voice notes · in your email";
+}
+
+export function ConnectionCard({ person, notesTo }: { person: Connection; notesTo?: string }) {
   const [copied, setCopied] = useState(false);
   const c = person.contact;
   const subtitle = person.position ?? ([person.major, person.school].filter(Boolean).join(" · ") || null);
@@ -141,16 +154,26 @@ export function ConnectionCard({ person }: { person: Connection }) {
         </div>
       )}
       <div className="h-px w-full bg-highlight/10" />
-      <div className="flex items-center gap-3 pt-2 pb-3 text-highlight">
-        <Icon icon={FileText} size={20} />
-        <div className="flex flex-1 flex-col gap-0.5">
-          <p className="text-label font-medium">Conversation notes</p>
-          <p className="text-caption">
-            {person.recorded ? "AI summary · voice notes · in your email" : "Voice notes · in your email"}
-          </p>
-        </div>
-        <Icon icon={ChevronRight} size={20} />
-      </div>
+      {(() => {
+        const row = (
+          <>
+            <Icon icon={FileText} size={20} />
+            <div className="flex flex-1 flex-col gap-0.5">
+              <p className="text-label font-medium">Conversation notes</p>
+              <p className="text-caption">{notesCaption(person)}</p>
+            </div>
+            <Icon icon={ChevronRight} size={20} />
+          </>
+        );
+        const cls = "flex min-h-11 items-center gap-3 pt-2 pb-3 text-highlight";
+        return notesTo ? (
+          <Link to={notesTo} aria-label={`Conversation notes with ${person.name}`} className={cls}>
+            {row}
+          </Link>
+        ) : (
+          <div className={cls}>{row}</div>
+        );
+      })()}
     </Card>
   );
 }
@@ -160,6 +183,8 @@ export default function EventHome() {
   const [me, setMe] = useState<Me | null>(null);
   const [bracelet, setBracelet] = useState<string | null>(null);
   const [people, setPeople] = useState<Connection[] | null>(null);
+  // Voice notes that weren't about anyone (ideas, to-dos).
+  const [otherNotes, setOtherNotes] = useState<VoiceNote[]>([]);
   const [tab, setTab] = useState<Tab>("connected");
   const [error, setError] = useState<string | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(!tokenStore.get());
@@ -191,6 +216,7 @@ export default function EventHome() {
       });
       setBracelet(assignment?.bracelet_id ?? null);
       setPeople(await api.connections(eventId));
+      api.notes(eventId).then((n) => setOtherNotes(n.other), () => undefined);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) setNeedsOnboarding(true);
       else setError(err instanceof ApiError ? err.message : "Couldn't load your connections.");
@@ -206,6 +232,7 @@ export default function EventHome() {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       api.connections(eventId).then(setPeople).catch(() => {});
+      api.notes(eventId).then((n) => setOtherNotes(n.other), () => undefined);
     }, REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [eventId, loaded]);
@@ -271,7 +298,7 @@ export default function EventHome() {
 
         {tab === "connected" ? (
           people.length ? (
-            people.map((p) => <ConnectionCard key={p.user_id} person={p} />)
+            people.map((p) => <ConnectionCard key={p.user_id} person={p} notesTo={`/e/${eventId}/notes/${p.user_id}`} />)
           ) : (
             <Empty title="No connections yet">
               When you meet someone, hold your bracelets together for about a second. They’ll show up here.
@@ -291,8 +318,34 @@ export default function EventHome() {
         )}
       </section>
 
+      {otherNotes.length > 0 && <OtherNotes notes={otherNotes} />}
+
       <TestEmail eventId={eventId} email={me.profile.email} />
     </Screen>
+  );
+}
+
+const CATEGORY: Record<string, string> = { idea: "Idea", task: "To do", other: "Note", person: "Note" };
+
+/** Voice notes trO sorted as ideas or to-dos rather than to a person. Only shown when there are some. */
+function OtherNotes({ notes }: { notes: VoiceNote[] }) {
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-title font-semibold text-highlight">Your other notes</h2>
+      <Card className="flex flex-col gap-4 p-5">
+        {notes.map((n) => (
+          <div key={n.id} className="flex items-start gap-3">
+            <IconBubble>
+              <Mic />
+            </IconBubble>
+            <div className="flex flex-col items-start gap-1">
+              <Badge tone={n.category === "task" ? "yellow" : "glass"}>{CATEGORY[n.category] ?? "Note"}</Badge>
+              <p className="text-body text-highlight">{n.text}</p>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </section>
   );
 }
 
@@ -343,7 +396,7 @@ export function TestEmail({ eventId, email }: { eventId: number; email: string |
   );
 }
 
-function Empty({ title, children }: { title: string; children: ReactNode }) {
+export function Empty({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1 rounded-[20px] border border-dashed border-highlight/30 bg-highlight/[0.06] p-6 text-center">
       <p className="text-label font-medium text-highlight">{title}</p>
