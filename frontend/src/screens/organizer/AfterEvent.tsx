@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { ErrorNote, Field, PrimaryButton, SecondaryButton } from "../../components/ui";
+import { Button, ErrorNote, Field } from "../../components/ui";
 import { organizerApi, type Overview, type SendResult } from "../../organizerApi";
+import { Panel } from "./parts";
 
 function resultLine(r: SendResult): string {
   const parts = [`Sent ${r.sent}.`];
@@ -36,14 +37,10 @@ function SendSummaries({ eventId, overview, onChanged }: { eventId: number; over
   };
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-title font-semibold">Summary emails</h2>
-        <p className="max-w-[64ch] text-body text-ink-muted">
-          Each attendee gets one email listing everyone they tapped, with only the contact details each person chose to
-          share. Running it again only emails people who haven't had theirs, so it's safe to send more than once.
-        </p>
-      </div>
+    <Panel
+      title="Summary emails"
+      intro="Each attendee gets one email listing everyone they tapped, with only the contact details each person chose to share. Running it again only emails people who haven't had theirs, so it's safe to send more than once."
+    >
 
       <label className="flex items-center gap-3 text-body">
         <input
@@ -53,7 +50,7 @@ function SendSummaries({ eventId, overview, onChanged }: { eventId: number; over
             setResend(e.target.checked);
             setConfirming(false);
           }}
-          className="size-5 accent-ink"
+          className="size-5 accent-yellow"
         />
         Also resend to people who already got one
       </label>
@@ -61,39 +58,39 @@ function SendSummaries({ eventId, overview, onChanged }: { eventId: number; over
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {overview.attendees === 0 ? (
-        <p className="text-body text-ink-muted">No one has checked in, so there's no one to email yet.</p>
+        <p className="text-body text-highlight/60">No one has checked in, so there's no one to email yet.</p>
       ) : confirming ? (
-        <div className="flex max-w-[520px] flex-col gap-3 rounded-[20px] border border-ink p-5">
+        <div className="flex max-w-[520px] flex-col gap-4 rounded-[20px] border border-yellow/60 bg-yellow/[0.06] p-5">
           <p className="text-body">
             Send summary emails to {waiting === 1 ? "1 attendee" : `up to ${waiting} attendees`} now? This can't be undone.
           </p>
           <div className="flex gap-2">
-            <SecondaryButton type="button" onClick={() => setConfirming(false)}>
+            <Button type="button" variant="soft" arrow={false} onClick={() => setConfirming(false)} className="flex-1">
               Not yet
-            </SecondaryButton>
-            <PrimaryButton type="button" onClick={send} loading={busy} arrow={false} className="flex-1">
+            </Button>
+            <Button type="button" onClick={send} loading={busy} arrow={false} className="flex-1">
               Send emails
-            </PrimaryButton>
+            </Button>
           </div>
         </div>
       ) : (
-        <PrimaryButton
+        <Button
           type="button"
           onClick={() => setConfirming(true)}
           disabled={waiting === 0}
           arrow={false}
-          className="w-auto! self-start px-8"
+          className="self-start px-8"
         >
           {waiting === 0 ? "Everyone has their email" : "Send summary emails"}
-        </PrimaryButton>
+        </Button>
       )}
 
       {result && (
-        <div role="status" className="flex flex-col gap-2 rounded-[20px] bg-soft p-5">
-          <p className="text-body font-semibold">{resultLine(result)}</p>
+        <div role="status" className="flex flex-col gap-2 rounded-xl bg-highlight/[0.06] p-4">
+          <p className="text-label font-medium text-yellow">{resultLine(result)}</p>
           {result.failures.length > 0 && (
             <>
-              <p className="text-caption text-ink-muted">Fix these and send again; only the failed ones are retried.</p>
+              <p className="text-caption text-highlight/60">Fix these and send again; only the failed ones are retried.</p>
               <ul className="list-disc pl-5 font-mono text-caption text-danger">
                 {result.failures.map((f) => (
                   <li key={f}>{f}</li>
@@ -103,7 +100,7 @@ function SendSummaries({ eventId, overview, onChanged }: { eventId: number; over
           )}
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -133,13 +130,7 @@ function TestEmail() {
   };
 
   return (
-    <section className="flex flex-col gap-4 border-t border-line pt-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-title font-semibold">Check email works</h2>
-        <p className="max-w-[64ch] text-body text-ink-muted">
-          Send yourself a short test before the event, so the summaries don't fail the morning after.
-        </p>
-      </div>
+    <Panel title="Check email works" intro="Send yourself a short test before the event, so the summaries don't fail the morning after.">
       <form onSubmit={submit} className="flex max-w-[520px] flex-col gap-4">
         <Field label="Send a test to" type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="you@usc.edu" required />
         {error && <ErrorNote>{error}</ErrorNote>}
@@ -148,17 +139,17 @@ function TestEmail() {
             {done}
           </p>
         )}
-        <SecondaryButton type="submit" disabled={busy || !to.trim()} className="flex-none self-start px-8">
-          {busy ? "Sending" : "Send test email"}
-        </SecondaryButton>
+        <Button type="submit" variant="soft" loading={busy} arrow={false} disabled={!to.trim()} className="self-start px-8">
+          Send test email
+        </Button>
       </form>
-    </section>
+    </Panel>
   );
 }
 
 export default function AfterEvent({ eventId, overview, onChanged }: { eventId: number; overview: Overview; onChanged: () => void }) {
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-4">
       <SendSummaries eventId={eventId} overview={overview} onChanged={onChanged} />
       <TestEmail />
     </div>

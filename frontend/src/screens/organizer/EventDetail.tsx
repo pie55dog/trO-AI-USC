@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { EventInfo } from "../../api";
-import { ErrorNote, Loading } from "../../components/ui";
+import { cx, ErrorNote } from "../../components/ui";
 import { formatWhen, organizerApi, type Attendee, type Overview } from "../../organizerApi";
 import AfterEvent from "./AfterEvent";
 import Attendees from "./Attendees";
 import EventForm from "./EventForm";
-import { cx } from "./Organizer";
+import { displayClass, InlineLoading } from "./parts";
 import Registration from "./Registration";
 
 const TABS = [
@@ -66,28 +66,28 @@ export default function EventDetail({ onEventChanged }: { onEventChanged: (e: Ev
     return () => clearInterval(timer);
   }, [refresh]);
 
-  if (!overview) return error ? <ErrorNote>{error}</ErrorNote> : <Loading label="Loading event" />;
+  if (!overview) return error ? <ErrorNote>{error}</ErrorNote> : <InlineLoading label="Loading event" />;
   const event = overview.event;
   const when = formatWhen(event.starts_at);
 
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="text-display font-normal italic break-words">{event.name}</h1>
+        <h1 className={cx(displayClass, "break-words")}>{event.name}</h1>
         {(when || event.location) && (
-          <p className="text-body text-ink-muted">
+          <p className="text-body text-highlight/60">
             {[when, event.location].filter(Boolean).join(", ")}
           </p>
         )}
-        <p aria-live="polite" className="max-w-[60ch] text-title text-pretty text-ink">
+        <p aria-live="polite" className="max-w-[60ch] pt-2 text-title text-pretty text-highlight">
           {summary(overview)}
         </p>
       </header>
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      <nav aria-label="Event sections" className="-mx-6 overflow-x-auto px-6 lg:mx-0 lg:px-0">
-        <div className="flex gap-1 border-b border-line">
+      <nav aria-label="Event sections" className="-mx-[25px] overflow-x-auto px-[25px] lg:mx-0 lg:px-0">
+        <div className="flex w-max gap-1 rounded-[13px] bg-highlight/[0.06] p-1">
           {TABS.map((t) => (
             <Link
               key={t.id}
@@ -98,13 +98,15 @@ export default function EventDetail({ onEventChanged }: { onEventChanged: (e: Ev
                 setParams(t.id === "registration" ? {} : { tab: t.id }, { replace: true });
               }}
               className={cx(
-                "-mb-px flex min-h-11 items-center gap-1.5 border-b-2 px-3 text-body whitespace-nowrap",
-                tab === t.id ? "border-ink font-semibold text-ink" : "border-transparent text-ink-muted hover:text-ink",
+                "flex min-h-10 items-center gap-1.5 px-4 text-label whitespace-nowrap text-highlight",
+                tab === t.id
+                  ? "rounded-[15px] bg-highlight/[0.14] font-medium shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                  : "rounded-[10px] text-highlight/70 hover:text-highlight",
               )}
             >
               {t.label}
               {t.id === "attendees" && (
-                <span className="rounded-full bg-soft px-2 text-caption font-semibold text-ink">{overview.attendees}</span>
+                <span className="text-yellow tabular-nums">{overview.attendees}</span>
               )}
             </Link>
           ))}
@@ -115,8 +117,8 @@ export default function EventDetail({ onEventChanged }: { onEventChanged: (e: Ev
       {tab === "attendees" && <Attendees eventId={eventId} attendees={attendees} onChanged={refresh} />}
       {tab === "after" && <AfterEvent eventId={eventId} overview={overview} onChanged={refresh} />}
       {tab === "details" && (
-        <section className="flex flex-col gap-4">
-          <p className="max-w-[60ch] text-body text-ink-muted">
+        <section className="glass flex flex-col gap-5 rounded-[20px] bg-highlight/[0.03] p-5 sm:p-6">
+          <p className="max-w-[60ch] text-body text-highlight/60">
             Changes show up on attendees' phones the next time they open the event, and in the summary email.
           </p>
           <EventForm

@@ -1,9 +1,9 @@
 import { Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api } from "../../api";
-import { ErrorNote, Loading } from "../../components/ui";
+import { cx, ErrorNote, Icon, inputClass } from "../../components/ui";
 import { organizerApi, type Attendee } from "../../organizerApi";
-import { cx } from "./Organizer";
+import { InlineLoading, pillClass } from "./parts";
 
 function emailLabel(a: Attendee): string {
   if (a.email_status === "sent") return "Sent";
@@ -37,7 +37,7 @@ function TakeBack({ eventId, person, onDone }: { eventId: number; person: Attend
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="min-h-9 rounded-full border border-line px-3 text-caption font-semibold hover:bg-soft"
+        className={pillClass("min-h-9 px-3")}
       >
         Take back
       </button>
@@ -57,7 +57,7 @@ function TakeBack({ eventId, person, onDone }: { eventId: number; person: Attend
   return (
     <span className="flex flex-wrap items-center justify-end gap-2">
       {error && <span className="text-caption text-danger">{error}</span>}
-      <button type="button" onClick={() => setConfirming(false)} className="min-h-9 px-2 text-caption text-ink-muted">
+      <button type="button" onClick={() => setConfirming(false)} className="min-h-9 px-2 text-caption text-highlight/60">
         Keep
       </button>
       <button
@@ -65,7 +65,7 @@ function TakeBack({ eventId, person, onDone }: { eventId: number; person: Attend
         onClick={release}
         disabled={busy}
         aria-label={`Take back ${person.name}'s bracelet`}
-        className="min-h-9 rounded-full bg-danger px-3 text-caption font-semibold text-white disabled:opacity-40"
+        className="min-h-9 rounded-full bg-danger px-3 text-caption font-semibold text-dark disabled:opacity-40"
       >
         Take back {person.bracelet_id}
       </button>
@@ -91,10 +91,10 @@ export default function Attendees({
     );
   }, [attendees, query]);
 
-  if (attendees === null) return <Loading label="Loading attendees" />;
+  if (attendees === null) return <InlineLoading label="Loading attendees" />;
   if (attendees.length === 0)
     return (
-      <p className="max-w-[60ch] text-body text-ink-muted">
+      <p className="glass max-w-[60ch] rounded-[20px] p-6 text-body text-highlight/60">
         No one has checked in yet. People show up here as soon as their bracelet is linked, either by tapping it to
         their phone or at the check-in desk on the Registration tab.
       </p>
@@ -107,21 +107,21 @@ export default function Attendees({
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative flex min-w-0 flex-1 items-center sm:max-w-[360px]">
           <span className="sr-only">Search attendees</span>
-          <Search aria-hidden className="pointer-events-none absolute left-4 size-4 text-ink-muted" />
+          <Icon icon={Search} className="pointer-events-none absolute left-4 text-highlight/50" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Name, email or bracelet"
-            className="w-full rounded-xl border border-line bg-bg py-[11px] pr-4 pl-10 text-body placeholder:text-ink-muted"
+            className={cx(inputClass(), "pl-10")}
           />
         </label>
         <a
           href={csvHref}
           download={`tro-event-${eventId}-attendees.csv`}
-          className="flex min-h-11 items-center gap-1.5 rounded-full border border-line px-4 text-caption font-semibold hover:bg-soft"
+          className={pillClass()}
         >
-          <Download aria-hidden className="size-4" />
+          <Icon icon={Download} />
           Export CSV
         </a>
       </div>
@@ -129,10 +129,10 @@ export default function Attendees({
       {shown.length === 0 ? (
         <ErrorNote>No attendee matches "{query}". Try part of their name, email or bracelet ID.</ErrorNote>
       ) : (
-        <div className="-mx-6 overflow-x-auto px-6 lg:mx-0 lg:px-0">
+        <div className="glass -mx-[25px] overflow-x-auto rounded-[20px] bg-highlight/[0.03] px-[25px] py-2 lg:mx-0 lg:px-6">
           <table className="w-full min-w-[720px] text-left text-body">
             <thead>
-              <tr className="border-b border-line text-caption text-ink-muted">
+              <tr className="border-b border-highlight/20 text-label-s text-highlight/50">
                 <th scope="col" className="py-2 pr-4 font-semibold">Attendee</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Bracelet</th>
                 <th scope="col" className="py-2 pr-4 font-semibold">Recording</th>
@@ -145,24 +145,24 @@ export default function Attendees({
               {shown.map((a) => {
                 const photo = api.mediaUrl(a.photo_url);
                 return (
-                  <tr key={a.user_id} className="border-b border-line align-middle">
+                  <tr key={a.user_id} className="border-b border-highlight/10 align-middle last:border-b-0">
                     <td className="py-3 pr-4">
                       <span className="flex items-center gap-3">
                         {photo ? (
                           <img src={photo} alt="" className="size-9 shrink-0 rounded-full object-cover" />
                         ) : (
-                          <span aria-hidden className="size-9 shrink-0 rounded-full bg-soft" />
+                          <span aria-hidden className="size-9 shrink-0 rounded-full bg-highlight/20" />
                         )}
                         <span className="flex min-w-0 flex-col">
-                          <span className="font-semibold">{a.name}</span>
-                          <span className="truncate text-caption text-ink-muted">{a.email}</span>
+                          <span className="text-label font-medium">{a.name}</span>
+                          <span className="truncate text-caption text-highlight/50">{a.email}</span>
                         </span>
                       </span>
                     </td>
                     <td className="py-3 pr-4 font-mono text-caption">{a.bracelet_id}</td>
                     <td className="py-3 pr-4">{a.recording_consent ? "Yes" : "No"}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{a.connections}</td>
-                    <td className={cx("py-3 pr-4", a.email_status === "failed" ? "text-danger" : a.email_status === "sent" ? "text-ink" : "text-ink-muted")}>
+                    <td className={cx("py-3 pr-4", a.email_status === "failed" ? "text-danger" : a.email_status === "sent" ? "text-yellow" : "text-highlight/50")}>
                       {emailLabel(a)}
                     </td>
                     <td className="py-3 text-right">

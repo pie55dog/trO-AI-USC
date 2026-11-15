@@ -4,7 +4,7 @@
  * is also the home page, since there is no bracelet to tap.
  */
 
-import { BookOpen, ChevronRight, FileText, LayoutList, RotateCcw, SlidersHorizontal, UserRound } from "lucide-react";
+import { BookOpen, ChevronRight, ClipboardList, FileText, LayoutList, RotateCcw, SlidersHorizontal, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PREVIEW, storageSet, tokenStore } from "../api";
@@ -91,8 +91,16 @@ export default function Demo() {
         ))}
       </nav>
 
-      <Link to="/organizer" className="text-body font-semibold text-ink underline underline-offset-4">
-        Running an event? Open the organizer console
+      <Link to="/organizer" className="glass flex min-h-[72px] items-center gap-4 rounded-[20px] p-4 active:bg-highlight/10">
+        <IconBubble tone="maroon">
+          <ClipboardList strokeWidth={1} absoluteStrokeWidth />
+        </IconBubble>
+        <span className="flex flex-1 flex-col gap-0.5">
+          <span className="text-caption text-yellow">For organizers</span>
+          <span className="text-label font-medium text-highlight">Organizer console</span>
+          <span className="text-caption text-highlight/70">Set up an event, register attendees, send the summary emails.</span>
+        </span>
+        <ChevronRight aria-hidden strokeWidth={1} absoluteStrokeWidth className="size-5 text-highlight/70" />
       </Link>
 
       <div className="mt-auto flex">

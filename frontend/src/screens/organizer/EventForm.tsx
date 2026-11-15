@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { EventInfo } from "../../api";
-import { ErrorNote, Field, PrimaryButton } from "../../components/ui";
+import { Button, ErrorNote, Field } from "../../components/ui";
 import { toLocalInput, type EventFields } from "../../organizerApi";
 
 /** Name, place and start time. Used to create an event and to edit one. */
@@ -70,11 +70,11 @@ export default function EventForm({
       />
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="flex items-center gap-4">
-        <PrimaryButton type="submit" loading={busy} disabled={!name.trim()} arrow={false} className="w-auto! px-8">
+        <Button type="submit" loading={busy} disabled={!name.trim()} arrow={false} className="px-8">
           {submitLabel}
-        </PrimaryButton>
+        </Button>
         {done && doneLabel && (
-          <p role="status" className="text-caption text-ink-muted">
+          <p role="status" className="text-caption text-yellow">
             {doneLabel}
           </p>
         )}
