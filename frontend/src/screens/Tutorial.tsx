@@ -1,5 +1,6 @@
 /**
- * "This is trO": how the bracelet works.
+ * How it works: the first screen a new person sees after tapping their
+ * bracelet, then step 1. Also reachable from the dashboard's Tutorial link.
  * Figma: "Refined / This is trO" (node 28:47).
  *
  * The gray circles are deliberate placeholders: the team is dropping a 3D
@@ -10,6 +11,7 @@ import { Mail, RotateCcw, Watch } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { DisplayTitle, IconBubble, PrimaryButton, Screen, StatusPill, StickyCta } from "../components/ui";
+import { tokenStore } from "../api";
 import { useEventContext } from "../hooks";
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
@@ -55,13 +57,10 @@ export default function Tutorial() {
           <br />
           {eventName}.
         </DisplayTitle>
-        <div className="flex flex-col gap-2">
-          <h2 className="text-title font-semibold">This is trO</h2>
-          <p className="text-body text-ink-body">
-            A smart wristband that helps you keep your connections with the Trojan family. After the event you’ll get an
-            email with everyone you met, ways to follow up, and any notes you took, without taking out your phone.
-          </p>
-        </div>
+        <p className="text-body text-ink-body">
+          trO is a smart wristband that helps you keep your connections with the Trojan family. After the event you’ll
+          get an email with everyone you met, ways to follow up, and any notes you took, without taking out your phone.
+        </p>
       </section>
 
       <Step n={1} title="When you meet someone, tap bracelets">
@@ -114,7 +113,10 @@ export default function Tutorial() {
       </section>
 
       <StickyCta>
-        <PrimaryButton onClick={() => navigate(`/e/${eventId}`)}>Got it, I’m ready</PrimaryButton>
+        {/* No account yet: on to step 1. The dashboard sends anyone half set up to the right step. */}
+        <PrimaryButton onClick={() => navigate(tokenStore.get() ? `/e/${eventId}` : `/e/${eventId}/welcome`)}>
+          Got it, I’m ready
+        </PrimaryButton>
       </StickyCta>
     </Screen>
   );
