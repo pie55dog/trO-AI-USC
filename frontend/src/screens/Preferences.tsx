@@ -94,7 +94,7 @@ export default function Preferences() {
         }
       }
       draftStore.set(null);
-      navigate(`/e/${eventId}/tutorial`);
+      navigate(`/e/${eventId}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't save your preferences.");
     } finally {

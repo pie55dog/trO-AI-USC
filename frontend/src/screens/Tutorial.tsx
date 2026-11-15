@@ -1,5 +1,6 @@
 /**
- * "This is trO": how the bracelet works.
+ * "This is trO": how the bracelet works. It is the first screen after a bracelet
+ * tap (new people continue to Welcome); the event page links back to it later.
  * Figma: "Refined / This is trO" (node 28:47).
  *
  * The gray circles are deliberate placeholders: the team is dropping a 3D
@@ -9,6 +10,7 @@
 import { Mail, RotateCcw, Watch } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { tokenStore } from "../api";
 import { DisplayTitle, IconBubble, PrimaryButton, Screen, StatusPill, StickyCta } from "../components/ui";
 import { useEventContext } from "../hooks";
 
@@ -114,7 +116,7 @@ export default function Tutorial() {
       </section>
 
       <StickyCta>
-        <PrimaryButton onClick={() => navigate(`/e/${eventId}`)}>Got it, I’m ready</PrimaryButton>
+        <PrimaryButton onClick={() => navigate(tokenStore.get() ? `/e/${eventId}` : `/e/${eventId}/welcome`)}>Got it, I’m ready</PrimaryButton>
       </StickyCta>
     </Screen>
   );
