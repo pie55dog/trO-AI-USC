@@ -54,5 +54,6 @@ How the code is kept secure (`backend/app/routers/watch.py`):
   audio mode keeps it going with your wrist down.
 - The watch checks for new taps every 2.5 s. That's why each clip includes a few seconds from
   before the tap was noticed.
-- This is a watch-only app (no iPhone app). To ship it on the App Store, add Xcode's watch-only
-  container target.
+- This is a watch-only app. The `trO` target is the small iPhone "container" that Apple requires to
+  upload a watch-only app to TestFlight or the App Store; it has no code of its own. To upload:
+  scheme **trO**, destination **Any iOS Device**, Product > Archive, then Distribute App > TestFlight.
