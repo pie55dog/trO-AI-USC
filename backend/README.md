@@ -22,7 +22,7 @@ LinkedIn, and a fake mail server, so they need no keys or network.
 
 ## Hosting
 
-The demo backend runs on Google Cloud Run for $0. See [deploy/README.md](../deploy/README.md).
+The demo backend runs on Render's free plan with a free Postgres database (`render.yaml`). See [deploy/README.md](../deploy/README.md). Locally it still uses SQLite.
 
 ## What LinkedIn sign-in gives us
 

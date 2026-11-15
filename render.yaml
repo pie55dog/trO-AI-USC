@@ -1,0 +1,57 @@
+# Render Blueprint: the Tro backend and its database on Render's FREE plan
+# (no card needed). Setup steps: deploy/README.md.
+services:
+  - type: web
+    name: tro-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips=*
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tro-db
+          property: connectionString
+      # The free plan's disk is wiped on every restart, so photos and
+      # bracelet uploads also get a copy in the database.
+      - key: MEDIA_IN_DB
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: BRACELET_API_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://pie55dog.github.io/trO-AI-USC
+      - key: CORS_ORIGINS
+        value: https://pie55dog.github.io,http://localhost:5173
+      # The free plan blocks email ports, so email goes over https to a
+      # Google Apps Script that sends from your Gmail (deploy/email-relay.gs).
+      - key: EMAIL_BACKEND
+        value: apps_script
+      - key: EMAIL_FROM
+        value: Tro <no-reply@tro.local>
+      - key: EMAIL_RELAY_URL
+        sync: false
+      - key: EMAIL_RELAY_KEY
+        sync: false
+      # From developer.linkedin.com > your app > Auth. The callback address
+      # is worked out from Render's own URL for the service.
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: tro-db
+    plan: free
+    region: oregon
+    databaseName: tro
+    user: tro
+    ipAllowList: []  # only reachable from the backend, not the internet

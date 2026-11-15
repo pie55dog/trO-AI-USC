@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 from email import message_from_bytes, policy
 from pathlib import Path
 
@@ -69,7 +70,8 @@ class FakeLinkedIn:
 def settings(tmp_path: Path) -> Settings:
     return dataclasses.replace(
         Settings(),
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        # Set TEST_DATABASE_URL to run the suite against Postgres instead.
+        database_url=os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{tmp_path / 'test.db'}",
         secret_key="test-secret",
         media_dir=tmp_path / "media",
         frontend_url="https://app.tro.test",
@@ -90,7 +92,14 @@ def fake_linkedin() -> FakeLinkedIn:
 
 @pytest.fixture
 def app(settings, fake_linkedin):
-    return create_app(settings, http_client_factory=fake_linkedin.client_factory())
+    app = create_app(settings, http_client_factory=fake_linkedin.client_factory())
+    yield app
+    if os.environ.get("TEST_DATABASE_URL"):
+        # A shared Postgres database outlives the test: start the next one empty.
+        from sqlmodel import SQLModel
+
+        SQLModel.metadata.drop_all(app.state.engine)
+    app.state.engine.dispose()
 
 
 @pytest.fixture

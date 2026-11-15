@@ -1,8 +1,0 @@
-# Litestream keeps a copy of the SQLite database in Cloud Storage.
-# deploy/setup.sh sets LITESTREAM_REPLICA_URL to gcs://<bucket>/db/tro.db.
-# For a local test, file:///some/folder works too.
-dbs:
-  - path: /data/tro.db
-    replicas:
-      - url: ${LITESTREAM_REPLICA_URL}
-        sync-interval: 1s

@@ -130,6 +130,7 @@ def linkedin_callback(
                 except ValueError:
                     pass  # not an image we accept; the user can upload one
                 else:
+                    storage.mirror_save(session, settings, user.photo_path, data)
                     session.add(user)
                     session.commit()
 

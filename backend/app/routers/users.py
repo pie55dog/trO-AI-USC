@@ -203,6 +203,8 @@ def upload_photo(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     old_path, user.photo_path = user.photo_path, new_path
     user.updated_at = utcnow()
+    storage.mirror_save(session, settings, new_path, data)
+    storage.mirror_delete(session, settings, rel_path=old_path)
     session.add(user)
     session.commit()
     storage.delete_media(settings.media_dir, old_path)
@@ -235,6 +237,9 @@ def delete_me(
         for row in session.exec(select(model).where(column == user.id)).all():
             session.delete(row)
     photo = user.photo_path
+    storage.mirror_delete(session, settings, rel_path=photo)
+    for upload_id in upload_ids:
+        storage.mirror_delete(session, settings, prefix=f"uploads/{upload_id}/")
     session.delete(user)
     session.commit()
     # Remove files only after the database commit succeeded, so a failed
@@ -246,14 +251,18 @@ def delete_me(
 
 
 @router.get("/media/photos/{filename}", include_in_schema=False)
-def get_photo(filename: str, settings: Annotated[Settings, Depends(get_settings)]) -> FileResponse:
+def get_photo(filename: str, session: DB, settings: Annotated[Settings, Depends(get_settings)]) -> FileResponse:
     """Serve a headshot.
 
     Photos are public by URL so they work in <img> tags and in emails, but
     each file name includes a random token, so they can't be guessed or
     listed by user id.
     """
-    path = storage.resolve_media(settings.media_dir, f"photos/{storage.safe_filename(filename, 'x')}")
+    rel = f"photos/{storage.safe_filename(filename, 'x')}"
+    path = storage.resolve_media(settings.media_dir, rel)
+    if path is not None and not path.is_file():
+        # The disk may have been wiped by a restart; bring back the database copy.
+        path = storage.mirror_restore(session, settings, rel)
     if path is None or not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "photo not found")
     media_type = storage.PHOTO_MEDIA_TYPES.get(path.suffix, "application/octet-stream")

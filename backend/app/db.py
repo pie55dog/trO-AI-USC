@@ -12,18 +12,32 @@ from sqlmodel import Session, SQLModel, create_engine
 from . import models  # noqa: F401  (import registers the tables on SQLModel.metadata)
 
 
+def normalize_database_url(database_url: str) -> str:
+    """Use the psycopg 3 driver for Postgres URLs.
+
+    Hosts like Render hand out ``postgres://`` or ``postgresql://`` URLs,
+    which SQLAlchemy would map to the old psycopg2 driver (not installed).
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if database_url.startswith(prefix):
+            return "postgresql+psycopg://" + database_url[len(prefix):]
+    return database_url
+
+
 def make_engine(database_url: str) -> Engine:
     """Create the engine and make sure every table exists.
 
     For a hackathon, ``create_all`` is enough; switch to Alembic migrations
     if the schema starts changing on a live database.
     """
+    database_url = normalize_database_url(database_url)
     connect_args = {}
     if database_url.startswith("sqlite"):
         # FastAPI runs sync endpoints in a thread pool, so SQLite must allow
         # a connection to be used from a different thread than created it.
         connect_args["check_same_thread"] = False
-    engine = create_engine(database_url, connect_args=connect_args)
+    # pool_pre_ping replaces connections a hosted database dropped while idle.
+    engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
 
     if database_url.startswith("sqlite"):
         # SQLite ignores foreign keys unless asked; turn them on per connection.

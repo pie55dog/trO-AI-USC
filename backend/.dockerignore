@@ -1,7 +1,0 @@
-.env
-*.db
-*.db-*
-media/
-tests/
-__pycache__/
-.pytest_cache/
