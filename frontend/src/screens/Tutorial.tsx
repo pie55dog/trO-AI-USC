@@ -4,29 +4,63 @@
  * Figma (Page 1, "final"): "Onboarding 1 / Welcome" through "Onboarding 5 /
  * After the event" (Dark).
  *
- * The cream circles are deliberate placeholders (40% opacity in Figma): the
- * team is dropping a 3D animation into each one. Keep their sizes and
- * positions as in Figma.
+ * Steps 1-3 each play a looping 3D animation, exported from the video fills
+ * of the "Placeholder · 3D animation / …" frames in those Figma screens. Each
+ * fills the content width at the Figma height (tap 316px, the other two 263px)
+ * and crops like Figma's "Fill" scale mode.
  */
 
 import { ChevronLeft, Mail, RotateCcw, Watch } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { tokenStore } from "../api";
 import { Button, cx, DisplayTitle, Icon, IconBubble, Screen, StatusPill } from "../components/ui";
 import { useEventContext } from "../hooks";
+import recordingLightPoster from "../assets/animations/recording-light-poster.jpg";
+import recordingLightMp4 from "../assets/animations/recording-light.mp4";
+import recordingLightWebm from "../assets/animations/recording-light.webm";
+import tapPoster from "../assets/animations/tap-poster.jpg";
+import tapMp4 from "../assets/animations/tap.mp4";
+import tapWebm from "../assets/animations/tap.webm";
+import voiceNotePoster from "../assets/animations/voice-note-poster.jpg";
+import voiceNoteMp4 from "../assets/animations/voice-note.mp4";
+import voiceNoteWebm from "../assets/animations/voice-note.webm";
 
 const PAGES = 5;
 
-/** A circle reserved for a 3D animation. `data-animation` names the slot. */
-function Placeholder({ name, size, className }: { name: string; size: number; className?: string }) {
+/**
+ * A looping 3D animation. Muted + playsInline so phones (iOS Safari included)
+ * autoplay it inline instead of going fullscreen. H.264 MP4 first (iOS, Chrome),
+ * VP9 WebM for browsers without H.264. `data-animation` names the slot.
+ */
+function Animation({ name, mp4, webm, poster, height }: { name: string; mp4: string; webm: string; poster: string; height: number }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    // React sets `muted` as a property only, and some browsers check it before
+    // allowing autoplay, so set it and nudge playback explicitly.
+    const video = ref.current;
+    if (!video) return;
+    video.muted = true;
+    video.play?.()?.catch(() => {});
+  }, [mp4]);
   return (
-    <div
+    <video
+      ref={ref}
       data-animation={name}
       aria-hidden
-      className={cx("rounded-full bg-highlight", className)}
-      style={{ width: size, height: size }}
-    />
+      poster={poster}
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      className="block w-full object-cover"
+      style={{ height }}
+    >
+      <source src={mp4} type="video/mp4" />
+      <source src={webm} type="video/webm" />
+    </video>
   );
 }
 
@@ -120,11 +154,7 @@ export default function Tutorial() {
           <p className="text-body text-highlight">
             Hold them together for about a second. Both buzz, and you’re added to each other’s follow-up lists.
           </p>
-          {/* Two overlapping circles: 242px at left -88px, 263px at left 133px / top 166px. */}
-          <div className="relative h-[429px] w-full overflow-hidden opacity-40">
-            <Placeholder name="tap-a" size={242} className="absolute top-0 left-[-88px]" />
-            <Placeholder name="tap-b" size={263} className="absolute top-[166px] left-[133px]" />
-          </div>
+          <Animation name="tap" mp4={tapMp4} webm={tapWebm} poster={tapPoster} height={316} />
         </section>
       )}
 
@@ -135,7 +165,7 @@ export default function Tutorial() {
             If you’ve both consented to recording, you’ll see this blinking light. <strong className="font-semibold">trO</strong> is
             taking notes on your conversation. If either of you said no, it only swaps contact info.
           </p>
-          <Placeholder name="recording-light" size={263} className="mx-auto opacity-40" />
+          <Animation name="recording-light" mp4={recordingLightMp4} webm={recordingLightWebm} poster={recordingLightPoster} height={263} />
         </section>
       )}
 
@@ -146,7 +176,7 @@ export default function Tutorial() {
             Press the button and say a note about anyone or any idea. <strong className="font-semibold">trO</strong> sorts it
             to the right person and sends it to you after the event.
           </p>
-          <Placeholder name="voice-note" size={263} className="mx-auto opacity-40" />
+          <Animation name="voice-note" mp4={voiceNoteMp4} webm={voiceNoteWebm} poster={voiceNotePoster} height={263} />
         </section>
       )}
 
