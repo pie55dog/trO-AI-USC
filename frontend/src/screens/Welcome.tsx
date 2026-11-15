@@ -3,17 +3,15 @@
  * Figma: "Refined / Welcome to event" (node 27:2).
  *
  * Works two ways:
- *  - Pull from LinkedIn: we send the phone to LinkedIn, it comes back signed
- *    in, and name, email and photo fill any empty fields.
- *  - Without LinkedIn: "Continue" creates the account from name + email.
- * What the user typed is saved as a draft, so the LinkedIn round trip never
- * loses it.
+ * "Continue" creates the account from name + email. What the user typed is
+ * saved as a draft, so a reload never loses it. (LinkedIn sign-in still exists
+ * on the backend; the button is not shown on this screen.)
  */
 
 import { Camera, Mail, Plus, Watch } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { api, ApiError, PREVIEW, tokenStore, type Me } from "../api";
+import { useNavigate } from "react-router-dom";
+import { api, ApiError, tokenStore, type Me } from "../api";
 import {
   Chip,
   DisplayTitle,
@@ -28,7 +26,7 @@ import {
   StickyCta,
 } from "../components/ui";
 import { useEventContext, wordCount } from "../hooks";
-import { draftStore, emptyDraft, returnStore, type ProfileDraft } from "../session";
+import { draftStore, emptyDraft, type ProfileDraft } from "../session";
 
 export const INTEREST_OPTIONS = ["AI & ML", "Startups", "Design", "Finance", "Research", "Consulting"];
 const BIO_MAX = 20;
@@ -71,7 +69,6 @@ function mergeServer(draft: ProfileDraft, me: Me): ProfileDraft {
 
 export default function Welcome() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { eventId, braceletId, eventName } = useEventContext();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -135,13 +132,6 @@ export default function Welcome() {
       set("interests", [...draft.interests, value]);
     }
     setOtherInterest(null);
-  };
-
-  const pullFromLinkedIn = () => {
-    draftStore.set(draft);
-    // Router path, without the deploy base path, so navigate() can use it.
-    returnStore.set(location.pathname);
-    window.location.assign(api.linkedinLoginUrl());
   };
 
   const onPickPhoto = async (file: File | undefined) => {
@@ -383,12 +373,6 @@ export default function Welcome() {
               <SecondaryButton type="button" onClick={() => fileInput.current?.click()}>
                 {shownPhoto ? "Change photo" : "Upload photo"}
               </SecondaryButton>
-              {/* LinkedIn sign-in needs the backend, so preview mode hides it. */}
-              {!signedIn && !PREVIEW && (
-                <SecondaryButton type="button" onClick={pullFromLinkedIn}>
-                  Pull from LinkedIn
-                </SecondaryButton>
-              )}
             </div>
             <input
               ref={fileInput}
