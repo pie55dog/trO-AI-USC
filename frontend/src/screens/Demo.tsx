@@ -91,6 +91,10 @@ export default function Demo() {
         ))}
       </nav>
 
+      <Link to="/organizer" className="text-body font-semibold text-ink underline underline-offset-4">
+        Running an event? Open the organizer console
+      </Link>
+
       <div className="mt-auto flex">
         <Button type="button" variant="soft" arrow={false} className="flex-1" onClick={startOver} leading={<RotateCcw aria-hidden strokeWidth={1} absoluteStrokeWidth className="size-4" />}>
           Start over as a new person

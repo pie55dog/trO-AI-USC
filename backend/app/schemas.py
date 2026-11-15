@@ -406,3 +406,67 @@ class SendSummariesResult(BaseModel):
 
 class TestEmailRequest(BaseModel):
     to: EmailStr
+
+
+# --- Organizer console -------------------------------------------------------
+
+
+class EventUpdate(BaseModel):
+    """PATCH /events/{id}. Only the fields sent change; ``null`` clears location or start time."""
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=_SHORT)
+    location: Optional[str] = Field(default=None, max_length=_SHORT)
+    starts_at: Optional[datetime] = None
+
+    @field_validator("name", "location", mode="before")
+    @classmethod
+    def _strip(cls, v):
+        return _clean(v) if isinstance(v, str) else v
+
+
+class AttendeeOut(BaseModel):
+    """One registered attendee (someone holding a bracelet for the event)."""
+
+    user_id: int
+    name: str
+    email: Optional[str]
+    school: Optional[str]
+    major: Optional[str]
+    photo_url: Optional[str]
+    bracelet_id: str
+    assigned_at: datetime
+    recording_consent: Optional[bool]
+    summary_email_opt_in: bool
+    connections: int
+    # "sent" / "failed" once the post-event email has been tried, else None.
+    email_status: Optional[str]
+
+
+class EventOverview(BaseModel):
+    """Counts for the organizer console."""
+
+    event: EventOut
+    attendees: int
+    recording_consent: int
+    summary_email_opt_in: int
+    connections: int
+    uploads_received: int
+    emails_sent: int
+    emails_failed: int
+
+
+class DeskAssign(BaseModel):
+    """POST /events/{id}/attendees: link a bracelet to an attendee at the check-in desk."""
+
+    email: EmailStr
+    bracelet_id: str = Field(min_length=1, max_length=64)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _lower(cls, v):
+        return v.strip().lower() if isinstance(v, str) else v
+
+    @field_validator("bracelet_id")
+    @classmethod
+    def _normalize(cls, v: str) -> str:
+        return normalize_bracelet_id(v)

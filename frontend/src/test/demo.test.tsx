@@ -18,7 +18,7 @@ describe("demo hub", () => {
   it("links every screen of the flow", () => {
     render(<MemoryRouter><Demo /></MemoryRouter>);
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/e/1/tutorial", "/e/1/welcome", "/e/1/preferences", "/e/1", "/demo/notes"]);
+    expect(hrefs).toEqual(["/e/1/tutorial", "/e/1/welcome", "/e/1/preferences", "/e/1", "/demo/notes", "/organizer"]);
   });
 
   it("start over signs out, clears saved data and opens step 1", async () => {
