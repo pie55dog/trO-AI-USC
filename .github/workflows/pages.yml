@@ -11,6 +11,10 @@ on:
   push:
     branches: [main]
     paths: ["frontend/**", ".github/workflows/pages.yml"]
+  # Pull requests run the build and tests only, so a broken build shows up
+  # before merge instead of failing the deploy.
+  pull_request:
+    paths: ["frontend/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +23,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -50,6 +54,7 @@ jobs:
           path: frontend/dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
