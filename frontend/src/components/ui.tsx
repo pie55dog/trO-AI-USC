@@ -66,13 +66,9 @@ export function SecondaryButton({ className, ...rest }: ButtonHTMLAttributes<HTM
 /** Sticky bottom area for the main action, so it stays in the thumb zone. */
 export function StickyCta({ children, divider }: { children: ReactNode; divider?: boolean }) {
   return (
-    <div
-      className={cx(
-        "sticky bottom-0 -mx-6 mt-auto flex flex-col gap-2 bg-bg px-6 pt-4 pb-[max(24px,env(safe-area-inset-bottom))]",
-        divider && "border-t border-line",
-      )}
-    >
-      {children}
+    // The white backing spans the screen; the divider spans the content width (as in Figma).
+    <div className="sticky bottom-0 -mx-6 mt-auto bg-bg px-6 pb-[max(24px,env(safe-area-inset-bottom))]">
+      <div className={cx("flex flex-col gap-2 pt-4", divider && "border-t border-line")}>{children}</div>
     </div>
   );
 }

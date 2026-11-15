@@ -8,11 +8,21 @@
  * need the AI step, so they aren't shown with made-up values.
  */
 
-import { Copy, FileText, Globe, Mic, Play, Watch } from "lucide-react";
+import { Copy, FileText, Globe, Mail, Mic, Play, Watch } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api, ApiError, tokenStore, type Connection, type Me } from "../api";
-import { DisplayTitle, ErrorNote, InstagramIcon, LinkedinIcon, Loading, Screen, StatusPill } from "../components/ui";
+import {
+  DisplayTitle,
+  ErrorNote,
+  IconBubble,
+  InstagramIcon,
+  LinkedinIcon,
+  Loading,
+  Screen,
+  SecondaryButton,
+  StatusPill,
+} from "../components/ui";
 import { useEventContext } from "../hooks";
 import { braceletStore } from "../session";
 
@@ -245,7 +255,58 @@ export default function EventHome() {
           </Empty>
         )}
       </section>
+
+      <TestEmail eventId={eventId} email={me.profile.email} />
     </Screen>
+  );
+}
+
+/** Bottom of the page: send yourself the summary email now, to try it out. */
+export function TestEmail({ eventId, email }: { eventId: number; email: string | null }) {
+  const [state, setState] = useState<{ status: "idle" | "sending" | "sent" | "error"; message?: string }>({
+    status: "idle",
+  });
+
+  const send = async () => {
+    setState({ status: "sending" });
+    try {
+      const { sent_to, delivered } = await api.testEmail(eventId);
+      setState({
+        status: "sent",
+        message: delivered
+          ? `Sent to ${sent_to}. Check your inbox.`
+          : `Made your email for ${sent_to}, but the server saves emails to a folder instead of sending them. Set up SMTP on the server to get it in your inbox.`,
+      });
+    } catch (err) {
+      setState({ status: "error", message: err instanceof ApiError ? err.message : "Couldn't send the email." });
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-3 rounded-[20px] border border-line p-5">
+      <div className="flex items-start gap-3">
+        <IconBubble>
+          <Mail />
+        </IconBubble>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-body font-semibold text-ink">Test your summary email</p>
+          <p className="text-caption text-ink-muted">
+            {email ? `We’ll send ${email} your summary as it looks right now.` : "Add an email to your profile first."}
+          </p>
+        </div>
+      </div>
+      <div className="flex">
+        <SecondaryButton type="button" onClick={() => void send()} disabled={!email || state.status === "sending"}>
+          {state.status === "sending" ? "Sending…" : state.status === "sent" ? "Send again" : "Send me a test email"}
+        </SecondaryButton>
+      </div>
+      {state.status === "sent" && (
+        <p role="status" className="text-caption text-ink-body">
+          {state.message}
+        </p>
+      )}
+      {state.status === "error" && <ErrorNote>{state.message}</ErrorNote>}
+    </section>
   );
 }
 

@@ -7,6 +7,7 @@
     GET  /events/{id}/bracelet            (attendee) which bracelet I have
     GET  /events/{id}/connections         (attendee) who I tapped at this event
     POST /events/{id}/send-summaries      (organizer) email every attendee
+    POST /events/{id}/test-email          (attendee) email me my summary now
 
 "Organizer" endpoints need the X-Admin-Key header.
 """
@@ -192,3 +193,26 @@ def send_summaries(
     except mailer.EmailError as exc:  # e.g. SMTP not configured
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     return SendSummariesResult(**report.__dict__)
+
+
+@router.post("/{event_id}/test-email")
+def send_my_test_email(
+    event_id: int,
+    session: DB,
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(current_user)],
+) -> dict[str, str | bool]:
+    """Email the signed-in person their summary for this event right now.
+
+    Only ever goes to their own address. Doesn't count as the post-event email.
+    ``delivered`` is false when the server only saves emails to its outbox
+    folder (EMAIL_BACKEND=console), so the app doesn't say "check your inbox".
+    """
+    event = _event_or_404(session, event_id)
+    try:
+        sent_to = post_event.send_test_email(session, settings, event, user)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    except mailer.EmailError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return {"sent_to": sent_to, "delivered": settings.email_backend == "smtp"}

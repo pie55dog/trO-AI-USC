@@ -69,7 +69,8 @@ export default function Tutorial() {
           Hold them together for about a second. Both buzz, and you’re added to each other’s follow-up lists.
         </p>
         {/* Two overlapping circles: 242px at left -88px, 263px at left 133px / top 166px (Figma 28:59). */}
-        <div className="relative h-[429px] w-full">
+        {/* Clipped to the content width, as in the Figma frame. */}
+        <div className="relative h-[429px] w-full overflow-hidden">
           <Placeholder name="tap-a" size={242} className="absolute top-0 left-[-88px]" />
           <Placeholder name="tap-b" size={263} className="absolute top-[166px] left-[133px]" />
         </div>

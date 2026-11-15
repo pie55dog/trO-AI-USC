@@ -35,7 +35,11 @@ Every push to `main` that touches `frontend/` deploys the app to
 `https://pie55dog.github.io/trO-AI-USC/` (workflow: `.github/workflows/pages.yml`).
 
 - One-time setup: repo Settings > Pages > Source: **GitHub Actions**.
-- Pages only hosts static files, so the backend has to run somewhere else.
+- With no `VITE_API_URL`, the deployed app runs in **preview mode** (`src/preview.ts`):
+  the whole flow works, but what you enter stays on that phone. It never shows
+  made-up events or connections, so the dashboard shows its empty states and
+  LinkedIn sign-in is hidden.
+- Pages only hosts static files, so for real accounts the backend has to run somewhere else.
   Set the repo variable `VITE_API_URL` (Settings > Secrets and variables >
   Actions > Variables) to its **HTTPS** URL and re-run the workflow. A laptop
   backend works through a tunnel such as `cloudflared tunnel --url http://localhost:8000`.
