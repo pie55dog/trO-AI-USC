@@ -140,7 +140,7 @@ def make_user(client, db, settings):
         headers = auth_header(settings, user.id)
         if onboarded:
             assert client.patch("/users/me", json=COMPLETE_PROFILE, headers=headers).status_code == 200
-            body = {"recording_consent": consent, **prefs}
+            body = {"recording_consent": consent, "recommendations_opt_in": True, **prefs}
             assert client.put("/users/me/preferences", json=body, headers=headers).status_code == 200
         return user.id, headers
 

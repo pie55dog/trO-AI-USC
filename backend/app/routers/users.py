@@ -3,6 +3,7 @@
     GET    /users/me               profile + preferences + what's still missing
     PATCH  /users/me               edit profile fields
     PUT    /users/me/preferences   save preferences (explicit recording consent)
+    POST   /users                  sign up without LinkedIn (name + email)
     POST   /users/me/photo         upload a headshot (replaces the LinkedIn one)
     DELETE /users/me               delete the account and everything tied to it
     GET    /media/photos/{name}    serve a headshot (see note in get_photo)
@@ -36,8 +37,10 @@ from ..schemas import (
     PreferencesUpdate,
     ProfileOut,
     ProfileUpdate,
+    SignUp,
+    SignUpOut,
 )
-from ..security import current_user, get_settings
+from ..security import current_user, get_settings, issue_token
 
 router = APIRouter(tags=["users"])
 
@@ -66,6 +69,7 @@ def profile_out(user: User) -> ProfileOut:
         major=user.major,
         bio=user.bio,
         interests=list(user.interests or []),
+        position=user.position,
         linkedin_url=user.linkedin_url,
         company=user.company,
         website=user.website,
@@ -82,6 +86,7 @@ def preferences_out(prefs: Optional[Preferences]) -> PreferencesOut:
     return PreferencesOut(
         recording_consent=prefs.recording_consent,
         recording_consent_updated_at=prefs.recording_consent_updated_at,
+        recommendations_opt_in=prefs.recommendations_opt_in,
         summary_email_opt_in=prefs.summary_email_opt_in,
         shared_fields=list(prefs.shared_fields),
     )
@@ -92,6 +97,8 @@ def onboarding_status(user: User, prefs: Optional[Preferences]) -> OnboardingSta
     missing = [f for f in REQUIRED_PROFILE_FIELDS if not getattr(user, f)]
     if prefs is None or prefs.recording_consent is None:
         missing.append("recording_consent")
+    if prefs is None or prefs.recommendations_opt_in is None:
+        missing.append("recommendations_opt_in")
     return OnboardingStatus(complete=not missing, missing=missing)
 
 
@@ -105,6 +112,31 @@ def me_out(session: Session, user: User) -> MeOut:
 
 
 # --- Endpoints -------------------------------------------------------------
+
+
+@router.post("/users", response_model=SignUpOut, status_code=status.HTTP_201_CREATED)
+def sign_up(
+    body: SignUp,
+    session: DB,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> SignUpOut:
+    """Create an account with just a name and email (no LinkedIn).
+
+    For attendees who don't use LinkedIn. An email that already has an
+    account is refused (409) rather than signed into, because we don't
+    verify email ownership here.
+    """
+    if session.exec(select(User).where(User.email == body.email)).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, "an account with this email already exists")
+    user = User(name=body.name, email=body.email)
+    session.add(user)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "an account with this email already exists") from None
+    session.refresh(user)
+    return SignUpOut(token=issue_token(settings, user.id), me=me_out(session, user))
 
 
 @router.get("/users/me", response_model=MeOut)
@@ -146,6 +178,7 @@ def save_preferences(body: PreferencesUpdate, user: CurrentUser, session: DB) ->
     if prefs.recording_consent != body.recording_consent:
         prefs.recording_consent_updated_at = utcnow()
     prefs.recording_consent = body.recording_consent
+    prefs.recommendations_opt_in = body.recommendations_opt_in
     prefs.summary_email_opt_in = body.summary_email_opt_in
     prefs.shared_fields = body.shared_fields
     prefs.updated_at = utcnow()

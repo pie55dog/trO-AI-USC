@@ -53,6 +53,9 @@ class User(SQLModel, table=True):
     interests: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
 
     # --- Optional profile fields ------------------------------------------
+    # e.g. "SWE intern at Snap". Typed by the user: LinkedIn's sign-in API
+    # doesn't expose it.
+    position: Optional[str] = None
     linkedin_url: Optional[str] = None
     company: Optional[str] = None
     website: Optional[str] = None
@@ -78,6 +81,10 @@ class Preferences(SQLModel, table=True):
     recording_consent: Optional[bool] = None
     # When the current consent answer was given, for an audit trail.
     recording_consent_updated_at: Optional[datetime] = None
+
+    # "Do you want personalized connection recommendations?" Also an
+    # explicit yes/no (the preferences screen requires both answers).
+    recommendations_opt_in: Optional[bool] = None
 
     # Whether to receive the next-morning summary email.
     summary_email_opt_in: bool = True

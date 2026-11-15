@@ -49,7 +49,7 @@ def connection_entry(person: User, prefs: Preferences | None) -> mailer.Connecti
         for f in FIELD_LABELS
         if f in shared and (value := getattr(person, f, None))
     ]
-    headline = " · ".join(p for p in (person.major, person.school) if p) or None
+    headline = person.position or " · ".join(p for p in (person.major, person.school) if p) or None
     return mailer.ConnectionEntry(name=person.name, contact=contact, headline=headline)
 
 

@@ -13,16 +13,16 @@ def test_onboarding_completes_after_profile_and_consent(client, make_user):
     me = client.get("/users/me", headers=headers).json()
     assert me["onboarding"] == {
         "complete": False,
-        "missing": ["school", "major", "bio", "interests", "recording_consent"],
+        "missing": ["school", "major", "bio", "interests", "recording_consent", "recommendations_opt_in"],
     }
 
     client.patch("/users/me", json=COMPLETE_PROFILE, headers=headers)
     me = client.get("/users/me", headers=headers).json()
-    assert me["onboarding"]["missing"] == ["recording_consent"]
+    assert me["onboarding"]["missing"] == ["recording_consent", "recommendations_opt_in"]
     # Consent is undecided (None), not silently false.
     assert me["preferences"]["recording_consent"] is None
 
-    client.put("/users/me/preferences", json={"recording_consent": False}, headers=headers)
+    client.put("/users/me/preferences", json={"recording_consent": False, "recommendations_opt_in": True}, headers=headers)
     me = client.get("/users/me", headers=headers).json()
     assert me["onboarding"] == {"complete": True, "missing": []}
     assert me["preferences"]["recording_consent"] is False
@@ -73,12 +73,12 @@ def test_preferences_require_explicit_consent(client, make_user):
 def test_preferences_validate_shared_fields(client, make_user):
     _, headers = make_user(onboarded=False)
     bad = client.put(
-        "/users/me/preferences", json={"recording_consent": True, "shared_fields": ["ssn"]}, headers=headers
+        "/users/me/preferences", json={"recording_consent": True, "recommendations_opt_in": True, "shared_fields": ["ssn"]}, headers=headers
     )
     assert bad.status_code == 422
     ok = client.put(
         "/users/me/preferences",
-        json={"recording_consent": True, "shared_fields": ["instagram", "email", "email"]},
+        json={"recording_consent": True, "recommendations_opt_in": True, "shared_fields": ["instagram", "email", "email"]},
         headers=headers,
     )
     assert ok.json()["preferences"]["shared_fields"] == ["email", "instagram"]
@@ -86,12 +86,12 @@ def test_preferences_validate_shared_fields(client, make_user):
 
 def test_consent_timestamp_only_changes_when_answer_changes(client, make_user):
     _, headers = make_user(onboarded=False)
-    first = client.put("/users/me/preferences", json={"recording_consent": True}, headers=headers).json()
+    first = client.put("/users/me/preferences", json={"recording_consent": True, "recommendations_opt_in": True}, headers=headers).json()
     same = client.put(
-        "/users/me/preferences", json={"recording_consent": True, "summary_email_opt_in": False}, headers=headers
+        "/users/me/preferences", json={"recording_consent": True, "recommendations_opt_in": True, "summary_email_opt_in": False}, headers=headers
     ).json()
     assert same["preferences"]["recording_consent_updated_at"] == first["preferences"]["recording_consent_updated_at"]
-    changed = client.put("/users/me/preferences", json={"recording_consent": False}, headers=headers).json()
+    changed = client.put("/users/me/preferences", json={"recording_consent": False, "recommendations_opt_in": True}, headers=headers).json()
     assert changed["preferences"]["recording_consent_updated_at"] != first["preferences"]["recording_consent_updated_at"]
 
 
@@ -180,3 +180,31 @@ def test_delete_account_removes_upload_folders(client, db, make_user, make_event
     )
     client.delete("/users/me", headers=headers)
     assert list((settings.media_dir / "uploads").iterdir()) == []
+
+
+def test_recommendations_answer_is_required(client, make_user):
+    _, headers = make_user(onboarded=False)
+    resp = client.put("/users/me/preferences", json={"recording_consent": True}, headers=headers)
+    assert resp.status_code == 422
+
+
+def test_position_is_saved_and_trimmed(client, make_user):
+    _, headers = make_user(onboarded=False)
+    p = client.patch("/users/me", json={"position": "  SWE intern at Snap "}, headers=headers).json()["profile"]
+    assert p["position"] == "SWE intern at Snap"
+
+
+def test_sign_up_without_linkedin(client):
+    resp = client.post("/users", json={"name": " Dana Park ", "email": "Dana@USC.edu"})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["me"]["profile"]["name"] == "Dana Park"
+    assert body["me"]["profile"]["email"] == "dana@usc.edu"
+    me = client.get("/users/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200
+
+
+def test_sign_up_refuses_existing_email(client, make_user):
+    make_user(email="taken@usc.edu")
+    assert client.post("/users", json={"name": "X", "email": "TAKEN@usc.edu"}).status_code == 409
+    assert client.post("/users", json={"name": "", "email": "new@usc.edu"}).status_code == 422

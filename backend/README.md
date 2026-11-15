@@ -44,13 +44,15 @@ and add `LINKEDIN_REDIRECT_URI` under Auth → Authorized redirect URLs.
 |---|---|---|
 | anyone | `GET /auth/linkedin/login` | Starts LinkedIn sign-in (open this in the phone browser) |
 | anyone | `GET /auth/linkedin/callback` | LinkedIn returns here; we redirect to `FRONTEND_URL/auth/callback#token=…&new_user=1` |
+| anyone | `POST /users` | Sign up without LinkedIn (name + email); returns a login token |
 | attendee | `GET /users/me` | Profile, preferences, and `onboarding.missing` (which screens are left) |
 | attendee | `PATCH /users/me` | Edit profile fields (send only what changed) |
-| attendee | `PUT /users/me/preferences` | Recording consent (required true/false), email opt-in, which contact fields to share |
+| attendee | `PUT /users/me/preferences` | Recording consent and recommendations (both required true/false), email opt-in, which contact fields to share |
 | attendee | `POST /users/me/photo` | Upload a headshot (JPEG/PNG/WebP, ≤5 MB) |
 | attendee | `DELETE /users/me` | Delete account, photo, and any bracelet audio |
 | attendee | `POST /events/{id}/bracelet` | Claim a bracelet by its ESP32 id (needs onboarding complete) |
 | attendee | `GET /events/{id}/bracelet` | Which bracelet I have |
+| attendee | `GET /events/{id}/connections` | Who I tapped at this event (shared contact fields, recorded or contact-only) |
 | anyone | `GET /events`, `GET /events/{id}` | List / view events |
 | organizer | `POST /events` | Create an event |
 | organizer | `POST /events/{id}/send-summaries` | Send every attendee their post-event email (re-runs skip people already emailed) |
@@ -67,8 +69,8 @@ should prefix them with the API's base URL.
 ## Onboarding rules
 
 Required before claiming a bracelet (spec section 5): name, email, school,
-major, bio, at least one interest, and an **explicit** recording-consent
-answer. Consent has no default; it stays `null` until the user picks yes or
+major, bio, at least one interest, and **explicit** answers to recording
+consent and recommendations. Consent has no default; it stays `null` until the user picks yes or
 no, and we record when the answer last changed.
 
 ## Email

@@ -183,3 +183,32 @@ def test_reused_bracelet_upload_must_name_its_event(client, make_user, make_even
     resp = client.post("/bracelets/uploads", data={"bracelet_id": "AA01"}, headers=BRACELET)
     assert resp.status_code == 422
     assert "event_id" in resp.json()["detail"]
+
+
+# --- Dashboard connections ----------------------------------------------------
+
+
+def test_connections_show_shared_fields_and_recording_status(client, db, make_user, make_event):
+    from app.models import Connection
+
+    event_id = make_event()
+    me_id, me = make_user(name="Me", consent=True)
+    a_id, _ = make_user(name="Alice", consent=True, shared_fields=["linkedin_url"])
+    b_id, _ = make_user(name="Bob", consent=False)
+    db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=a_id))
+    db.add(Connection(event_id=event_id, user_a_id=me_id, user_b_id=b_id))
+    db.commit()
+
+    people = {p["name"]: p for p in client.get(f"/events/{event_id}/connections", headers=me).json()}
+    assert people["Alice"]["recorded"] is True
+    assert people["Alice"]["contact"] == {"linkedin_url": "https://linkedin.com/in/tommy"}
+    assert people["Bob"]["recorded"] is False  # Bob said no, so it was contact-only
+    assert "email" in people["Bob"]["contact"]
+
+
+def test_connections_empty_and_auth(client, make_user, make_event):
+    event_id = make_event()
+    _, me = make_user()
+    assert client.get(f"/events/{event_id}/connections", headers=me).json() == []
+    assert client.get(f"/events/{event_id}/connections").status_code == 401
+    assert client.get("/events/999/connections", headers=me).status_code == 404

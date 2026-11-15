@@ -41,13 +41,14 @@ class ProfileUpdate(BaseModel):
     major: Optional[str] = Field(default=None, max_length=_SHORT)
     bio: Optional[str] = Field(default=None, max_length=_BIO)
     interests: Optional[list[str]] = Field(default=None, max_length=_MAX_INTERESTS)
+    position: Optional[str] = Field(default=None, max_length=_SHORT)
     linkedin_url: Optional[str] = Field(default=None, max_length=_URL)
     company: Optional[str] = Field(default=None, max_length=_SHORT)
     website: Optional[str] = Field(default=None, max_length=_URL)
     portfolio_url: Optional[str] = Field(default=None, max_length=_URL)
     instagram: Optional[str] = Field(default=None, max_length=_SHORT)
 
-    @field_validator("name", "school", "major", "bio", "company", "instagram", mode="before")
+    @field_validator("name", "school", "major", "bio", "position", "company", "instagram", mode="before")
     @classmethod
     def _strip(cls, v):
         return _clean(v) if isinstance(v, str) else v
@@ -91,6 +92,23 @@ class ProfileUpdate(BaseModel):
         return "https://" + v
 
 
+class SignUp(BaseModel):
+    """POST /users: create an account without LinkedIn."""
+
+    name: str = Field(min_length=1, max_length=_SHORT)
+    email: EmailStr
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _strip_name(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _lower(cls, v):
+        return v.strip().lower() if isinstance(v, str) else v
+
+
 class ProfileOut(BaseModel):
     id: int
     name: str
@@ -99,6 +117,7 @@ class ProfileOut(BaseModel):
     major: Optional[str]
     bio: Optional[str]
     interests: list[str]
+    position: Optional[str]
     linkedin_url: Optional[str]
     company: Optional[str]
     website: Optional[str]
@@ -114,11 +133,13 @@ class ProfileOut(BaseModel):
 class PreferencesUpdate(BaseModel):
     """PUT /users/me/preferences.
 
-    ``recording_consent`` is required on every save and must be true or
-    false: the spec requires an explicit choice, never an assumed default.
+    ``recording_consent`` and ``recommendations_opt_in`` are required on
+    every save and must be true or false: the spec requires an explicit
+    choice, never an assumed default.
     """
 
     recording_consent: bool
+    recommendations_opt_in: bool
     summary_email_opt_in: bool = True
     shared_fields: list[str] = Field(default_factory=lambda: list(SHAREABLE_FIELDS))
 
@@ -136,11 +157,29 @@ class PreferencesOut(BaseModel):
     # None means the user hasn't chosen yet.
     recording_consent: Optional[bool]
     recording_consent_updated_at: Optional[datetime]
+    recommendations_opt_in: Optional[bool]
     summary_email_opt_in: bool
     shared_fields: list[str]
 
 
 # --- Onboarding status -----------------------------------------------------
+
+
+class ConnectionOut(BaseModel):
+    """Someone the signed-in user tapped bracelets with (event dashboard)."""
+
+    user_id: int
+    name: str
+    position: Optional[str]
+    school: Optional[str]
+    major: Optional[str]
+    bio: Optional[str]
+    photo_url: Optional[str]
+    # True only when BOTH people consented, i.e. the bracelet recorded.
+    recorded: bool
+    # Only the fields this person chose to share, e.g. {"email": "...", "linkedin_url": "..."}.
+    contact: dict[str, str]
+    tapped_at: datetime
 
 
 class OnboardingStatus(BaseModel):
@@ -157,6 +196,11 @@ class MeOut(BaseModel):
     profile: ProfileOut
     preferences: PreferencesOut
     onboarding: OnboardingStatus
+
+
+class SignUpOut(BaseModel):
+    token: str
+    me: MeOut
 
 
 # --- Events and bracelets --------------------------------------------------
