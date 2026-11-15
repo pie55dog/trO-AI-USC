@@ -20,6 +20,10 @@ Open http://localhost:8000/docs for interactive API docs you can click through.
 Run the tests: `pytest` (from `backend/`). They use a temporary database, a fake
 LinkedIn, and a fake mail server, so they need no keys or network.
 
+## Hosting
+
+The demo backend runs on Render's free plan with a free Postgres database (`render.yaml`). See [deploy/README.md](../deploy/README.md). Locally it still uses SQLite.
+
 ## What LinkedIn sign-in gives us
 
 We use LinkedIn's official **Sign In with LinkedIn using OpenID Connect**

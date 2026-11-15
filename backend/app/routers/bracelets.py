@@ -123,6 +123,8 @@ def receive_upload(
         raise
 
     upload.file_paths = saved
+    for rel in saved:
+        storage.mirror_save(session, settings, rel)
     session.add(upload)
     session.commit()
 

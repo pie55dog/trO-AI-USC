@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, LargeBinary, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -192,3 +192,17 @@ class EmailLog(SQLModel, table=True):
     status: str
     error: Optional[str] = None
     sent_at: datetime = Field(default_factory=utcnow)
+
+
+class MediaFile(SQLModel, table=True):
+    """A copy of a stored file (photo or bracelet upload) kept in the database.
+
+    Only used when MEDIA_IN_DB is on, for hosts whose disk is wiped on every
+    restart (Render's free tier). Files are still written to MEDIA_DIR and
+    served from there; this copy puts them back after a restart.
+    """
+
+    # Same relative path as on disk, e.g. "photos/3-ab12.jpg".
+    path: str = Field(primary_key=True)
+    data: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow)

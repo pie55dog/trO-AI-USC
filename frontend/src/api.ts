@@ -142,6 +142,15 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/**
+ * The free backend host sleeps after 15 idle minutes and takes up to a minute
+ * to wake. Pinging it as soon as the app opens starts that wake-up while the
+ * person is still reading the first screen.
+ */
+export function wakeServer(): void {
+  if (!PREVIEW) fetch(`${API_URL}/health`).catch(() => undefined);
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = tokenStore.get();

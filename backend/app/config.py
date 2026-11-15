@@ -30,6 +30,9 @@ class Settings:
     token_max_age: int = field(default_factory=lambda: int(_env("TOKEN_MAX_AGE", str(60 * 60 * 24 * 30))))
     # Where profile photos and raw bracelet uploads are stored on disk.
     media_dir: Path = field(default_factory=lambda: Path(_env("MEDIA_DIR", "./media")))
+    # Also keep a copy of every stored file in the database, for hosts whose
+    # disk is wiped on restart (Render free tier). See storage.mirror_*.
+    media_in_db: bool = field(default_factory=lambda: _env("MEDIA_IN_DB", "false").lower() == "true")
     # The mobile web app. After LinkedIn sign-in we redirect back here.
     frontend_url: str = field(default_factory=lambda: _env("FRONTEND_URL", "http://localhost:5173"))
     # Comma-separated origins allowed to call the API from a browser.
@@ -44,7 +47,11 @@ class Settings:
     linkedin_client_secret: str = field(default_factory=lambda: _env("LINKEDIN_CLIENT_SECRET"))
     # Must exactly match a redirect URL registered in the LinkedIn developer portal.
     linkedin_redirect_uri: str = field(
-        default_factory=lambda: _env("LINKEDIN_REDIRECT_URI", "http://localhost:8000/auth/linkedin/callback")
+        default_factory=lambda: _env(
+            "LINKEDIN_REDIRECT_URI",
+            # Render sets RENDER_EXTERNAL_URL to the service's public https address.
+            _env("RENDER_EXTERNAL_URL", "http://localhost:8000").rstrip("/") + "/auth/linkedin/callback",
+        )
     )
 
     # --- Shared secrets for non-user callers -----------------------------
@@ -63,6 +70,10 @@ class Settings:
     smtp_password: str = field(default_factory=lambda: _env("SMTP_PASSWORD"))
     # True = STARTTLS on port 587 (Gmail, Outlook). Port 465 always uses implicit TLS.
     smtp_starttls: bool = field(default_factory=lambda: _env("SMTP_STARTTLS", "true").lower() == "true")
+    # EMAIL_BACKEND=apps_script: a Google Apps Script web app that sends from
+    # your Gmail over https (deploy/email-relay.gs). For hosts that block SMTP.
+    email_relay_url: str = field(default_factory=lambda: _env("EMAIL_RELAY_URL"))
+    email_relay_key: str = field(default_factory=lambda: _env("EMAIL_RELAY_KEY"))
 
     @property
     def linkedin_configured(self) -> bool:

@@ -5,6 +5,9 @@ Two backends, picked with EMAIL_BACKEND:
 * ``smtp``: really sends, using Python's standard library (no third-party
   service). Works with any SMTP account, e.g. a Gmail account with an app
   password (smtp.gmail.com:587) or a USC Office 365 mailbox.
+* ``apps_script``: posts the email over https to a small Google Apps Script
+  web app (deploy/email-relay.gs) that sends it from your Gmail. For hosts
+  that block SMTP ports, like Render's free tier.
 * ``console``: writes each email to MEDIA_DIR/outbox/ as a .eml file you can
   open in any mail app. For local development and tests only.
 
@@ -25,6 +28,8 @@ from email.message import EmailMessage
 from email.utils import make_msgid
 from pathlib import Path
 from typing import Optional, Protocol
+
+import httpx
 
 from .config import Settings
 
@@ -78,13 +83,46 @@ class SMTPBackend:
             raise EmailError(f"{type(exc).__name__}: {exc}") from exc
 
 
+class AppsScriptBackend:
+    """Sends through the Google Apps Script relay in deploy/email-relay.gs."""
+
+    def __init__(self, settings: Settings):
+        if not (settings.email_relay_url and settings.email_relay_key):
+            raise EmailError("EMAIL_RELAY_URL and EMAIL_RELAY_KEY must be set")
+        self.settings = settings
+
+    def send(self, message: EmailMessage) -> None:
+        text_part = message.get_body(preferencelist=("plain",))
+        html_part = message.get_body(preferencelist=("html",))
+        sender_name = message["From"].addresses[0].display_name if message["From"] else ""
+        body = {
+            "key": self.settings.email_relay_key,
+            "to": str(message["To"]),
+            "subject": str(message["Subject"]),
+            "text": text_part.get_content() if text_part else "",
+            "html": html_part.get_content() if html_part else "",
+            "name": sender_name or "Tro",
+        }
+        try:
+            # Apps Script answers a POST with a redirect to the result.
+            with httpx.Client(timeout=30, follow_redirects=True) as client:
+                resp = client.post(self.settings.email_relay_url, json=body)
+            result = resp.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise EmailError(f"email relay unreachable: {type(exc).__name__}: {exc}") from exc
+        if not result.get("ok"):
+            raise EmailError(f"email relay refused: {result.get('error', 'unknown error')}")
+
+
 def get_backend(settings: Settings) -> EmailBackend:
     """Pick the backend named by EMAIL_BACKEND."""
     if settings.email_backend == "smtp":
         return SMTPBackend(settings)
+    if settings.email_backend == "apps_script":
+        return AppsScriptBackend(settings)
     if settings.email_backend == "console":
         return ConsoleBackend(settings.media_dir / "outbox")
-    raise EmailError(f"unknown EMAIL_BACKEND {settings.email_backend!r} (use 'smtp' or 'console')")
+    raise EmailError(f"unknown EMAIL_BACKEND {settings.email_backend!r} (use 'smtp', 'apps_script' or 'console')")
 
 
 def build_message(settings: Settings, to: str, subject: str, text: str, html_body: str) -> EmailMessage:
